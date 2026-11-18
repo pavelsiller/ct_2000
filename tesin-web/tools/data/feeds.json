@@ -1,0 +1,193 @@
+{
+  "weather": {
+    "every": "hourly",
+    "files": [
+      "weather.json"
+    ]
+  },
+  "meteo": {
+    "every": "hourly",
+    "files": [
+      "meteo.json",
+      "meteo-history.json"
+    ]
+  },
+  "air": {
+    "every": "hourly",
+    "files": [
+      "air.json"
+    ]
+  },
+  "outages": {
+    "every": "daily",
+    "files": [
+      "outages.json"
+    ]
+  },
+  "gotobrno": {
+    "every": "daily",
+    "files": [
+      "gotobrno.json",
+      "gotobrno-detail.json"
+    ]
+  },
+  "paro": {
+    "every": "daily",
+    "files": [
+      "paro.json",
+      "paro-detail.json"
+    ]
+  },
+  "closures": {
+    "every": "daily",
+    "files": [
+      "closures.json"
+    ]
+  },
+  "roadworks": {
+    "every": "daily",
+    "files": [
+      "roadworks.json"
+    ]
+  },
+  "policie": {
+    "every": "daily",
+    "files": [
+      "policie.json"
+    ]
+  },
+  "udalosti": {
+    "every": "hourly",
+    "files": [
+      "udalosti.json"
+    ]
+  },
+  "cisteni": {
+    "every": "daily",
+    "files": [
+      "cisteni.json"
+    ]
+  },
+  "projects": {
+    "every": "weekly",
+    "files": [
+      "projects.json",
+      "projects-detail.json"
+    ]
+  },
+  "sites": {
+    "every": "weekly",
+    "files": [
+      "sites.json"
+    ]
+  },
+  "tramplan": {
+    "every": "weekly",
+    "files": [
+      "tramplan.json"
+    ]
+  },
+  "pois": {
+    "every": "weekly",
+    "files": [
+      "smallpois.json"
+    ]
+  },
+  "kameny": {
+    "every": "manual",
+    "files": [
+      "kameny.json",
+      "kameny-zmeny.json"
+    ]
+  },
+  "monuments": {
+    "every": "weekly",
+    "files": [
+      "monuments.json"
+    ]
+  },
+  "hasici": {
+    "every": "minute",
+    "files": [
+      "hasici.json",
+      "hasici-tyden.json"
+    ]
+  },
+  "voda": {
+    "every": "5min",
+    "files": [
+      "voda.json",
+      "voda-tyden.json"
+    ]
+  },
+  "jams": {
+    "every": "minute",
+    "files": [
+      "jams.json"
+    ]
+  },
+  "parking": {
+    "every": "5min",
+    "files": [
+      "parking-live.json",
+      "parking-history.json"
+    ]
+  },
+  "doprava": {
+    "every": "5min",
+    "files": [
+      "doprava.json",
+      "doprava-ulice.json"
+    ]
+  },
+  "weather-now": {
+    "every": "5min",
+    "files": [
+      "weather-now.json"
+    ]
+  },
+  "forecast": {
+    "every": "5min",
+    "files": [
+      "forecast.json"
+    ]
+  },
+  "air-live": {
+    "every": "5min",
+    "files": [
+      "air-live.json"
+    ]
+  },
+  "meteo-live": {
+    "every": "5min",
+    "files": [
+      "meteo-live.json"
+    ]
+  },
+  "paro-live": {
+    "every": "5min",
+    "files": [
+      "paro-live.json"
+    ]
+  },
+  "zpravy": {
+    "every": "minute",
+    "files": [
+      "zpravy.json"
+    ]
+  },
+  "mhd": {
+    "every": "daily",
+    "files": [
+      "mhd.json",
+      "mhd-stops.json",
+      "r0/mhd-geo.json"
+    ]
+  },
+  "vlaky": {
+    "every": "daily",
+    "files": [
+      "vlaky.json"
+    ]
+  }
+}

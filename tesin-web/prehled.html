@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brno teď · přehled města · Brno 2000</title>
+<meta name="description" content="Co se právě děje v Brně: zásahy hasičů, havárie a odstávky vody, doprava, MHD, výstrahy, ovzduší, a čísla za dnešek a za týden. Z otevřených dat.">
+<meta name="author" content="Mirek Kubásek">
+<meta property="og:title" content="Brno teď: přehled města">
+<meta property="og:description" content="Co se právě děje v Brně a čísla za dnešek a za týden, z otevřených dat.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="cs_CZ">
+<meta property="og:site_name" content="Brno 2000">
+<meta property="og:image" content="%OGIMAGE%">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<!--#ogurl-->
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="%BASE%favicon.ico?v=%ICONV%" sizes="32x32">
+<link rel="icon" href="%BASE%favicon.svg?v=%ICONV%" type="image/svg+xml">
+<link rel="apple-touch-icon" href="%BASE%apple-touch-icon.png?v=%ICONV%">
+<link rel="manifest" href="%BASE%manifest.webmanifest?v=%ICONV%">
+<meta name="theme-color" content="#141a26">
+<!--#oldkeys-->
+<link rel="stylesheet" href="./src/prehled.css">
+<!--#stats-->
+</head>
+<body>
+<header class="bar">
+  <div class="bar-in">
+    <a class="tomap" href="./" title="Zpět do živé mapy Brna">
+      <span class="tomap-pic"><img src="./src/img/prehled-mapa-ikona.webp" width="48" height="48" alt=""><span class="tomap-pin" aria-hidden="true"></span><span class="tomap-band" aria-hidden="true">‹ Mapa</span></span>
+      <span class="tomap-txt"><span class="tomap-k">‹ Zpět do</span><span class="tomap-b">mapy</span></span>
+    </a>
+    <h1 class="mast"><span class="logo">Brno<span>2000</span></span><span class="ted">teď</span></h1>
+    <div class="live" id="live">
+      <span class="onair"><span class="dot" aria-hidden="true"></span><span class="onair-t">Živě</span></span>
+      <span class="clock" id="clock" aria-hidden="true">--:--</span>
+      <button class="sweep" id="sweep" type="button" title="Obnovit hned (jinak se obnovuje každou minutu)" aria-label="Obnovit hned">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle class="ring" cx="16" cy="16" r="13"/><g class="hand" id="hand"><line x1="16" y1="16" x2="16" y2="5"/></g><circle class="hub" cx="16" cy="16" r="2"/></svg>
+      </button>
+      <span class="next" id="next" aria-live="off" title="Do další obnovy">60 s</span>
+    </div>
+  </div>
+  <div class="prog" aria-hidden="true"><i id="prog"></i></div>
+</header>
+<div class="ticker" id="ticker" hidden><span class="ticker-k">Zprávy</span><div class="ticker-w"><div class="ticker-in" id="ticker-in"></div></div></div>
+<main>
+  <section class="hero" aria-labelledby="lead">
+    <p class="kicker" id="kicker">Přehled města z otevřených dat</p>
+    <p class="headline" id="lead">Načítám…</p>
+    <p class="stamp" id="stamp" aria-live="polite"></p>
+  </section>
+
+  <section class="nowsec" aria-labelledby="h-now">
+    <h2 id="h-now" class="sec"><span>Právě teď</span></h2>
+    <div class="nowrow">
+      <div class="tiles" id="tiles">
+        <div class="tile sk"></div><div class="tile sk"></div><div class="tile sk"></div><div class="tile sk"></div>
+      </div>
+      <figure class="qr">
+        <figcaption><svg viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 0h6v12H3zM4 2h4v7H4zM5 10h2v1H5z"/></svg>Do mobilu</figcaption>
+        <svg class="qr-code" viewBox="0 0 33 33" shape-rendering="crispEdges" role="img" aria-label="QR kód: mapa Brno 2000 v mobilu"><path fill="currentColor" d="M2 2h7v1h-7zM10 2h1v1h-1zM12 2h2v1h-2zM17 2h2v1h-2zM20 2h3v1h-3zM24 2h7v1h-7zM2 3h1v1h-1zM8 3h1v1h-1zM10 3h1v1h-1zM12 3h1v1h-1zM16 3h2v1h-2zM19 3h2v1h-2zM22 3h1v1h-1zM24 3h1v1h-1zM30 3h1v1h-1zM2 4h1v1h-1zM4 4h3v1h-3zM8 4h1v1h-1zM11 4h1v1h-1zM15 4h3v1h-3zM20 4h1v1h-1zM24 4h1v1h-1zM26 4h3v1h-3zM30 4h1v1h-1zM2 5h1v1h-1zM4 5h3v1h-3zM8 5h1v1h-1zM10 5h2v1h-2zM14 5h1v1h-1zM19 5h1v1h-1zM22 5h1v1h-1zM24 5h1v1h-1zM26 5h3v1h-3zM30 5h1v1h-1zM2 6h1v1h-1zM4 6h3v1h-3zM8 6h1v1h-1zM11 6h3v1h-3zM15 6h1v1h-1zM19 6h1v1h-1zM21 6h1v1h-1zM24 6h1v1h-1zM26 6h3v1h-3zM30 6h1v1h-1zM2 7h1v1h-1zM8 7h1v1h-1zM11 7h1v1h-1zM13 7h2v1h-2zM16 7h1v1h-1zM18 7h5v1h-5zM24 7h1v1h-1zM30 7h1v1h-1zM2 8h7v1h-7zM10 8h1v1h-1zM12 8h1v1h-1zM14 8h1v1h-1zM16 8h1v1h-1zM18 8h1v1h-1zM20 8h1v1h-1zM22 8h1v1h-1zM24 8h7v1h-7zM10 9h1v1h-1zM15 9h2v1h-2zM18 9h2v1h-2zM21 9h1v1h-1zM2 10h1v1h-1zM4 10h2v1h-2zM7 10h3v1h-3zM14 10h3v1h-3zM18 10h2v1h-2zM22 10h1v1h-1zM24 10h1v1h-1zM27 10h1v1h-1zM29 10h2v1h-2zM2 11h1v1h-1zM4 11h2v1h-2zM7 11h1v1h-1zM14 11h1v1h-1zM18 11h2v1h-2zM21 11h1v1h-1zM24 11h1v1h-1zM26 11h1v1h-1zM30 11h1v1h-1zM8 12h1v1h-1zM10 12h2v1h-2zM16 12h1v1h-1zM18 12h3v1h-3zM26 12h1v1h-1zM28 12h2v1h-2zM3 13h1v1h-1zM5 13h1v1h-1zM7 13h1v1h-1zM9 13h1v1h-1zM11 13h1v1h-1zM15 13h2v1h-2zM20 13h1v1h-1zM22 13h1v1h-1zM25 13h2v1h-2zM30 13h1v1h-1zM3 14h1v1h-1zM7 14h2v1h-2zM13 14h1v1h-1zM17 14h1v1h-1zM19 14h1v1h-1zM21 14h1v1h-1zM23 14h1v1h-1zM27 14h2v1h-2zM3 15h3v1h-3zM7 15h1v1h-1zM10 15h1v1h-1zM14 15h2v1h-2zM17 15h8v1h-8zM28 15h3v1h-3zM5 16h1v1h-1zM7 16h2v1h-2zM10 16h3v1h-3zM14 16h1v1h-1zM16 16h1v1h-1zM18 16h1v1h-1zM21 16h1v1h-1zM24 16h1v1h-1zM26 16h1v1h-1zM28 16h3v1h-3zM2 17h4v1h-4zM7 17h1v1h-1zM11 17h5v1h-5zM17 17h2v1h-2zM21 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM29 17h1v1h-1zM2 18h1v1h-1zM4 18h1v1h-1zM8 18h1v1h-1zM11 18h2v1h-2zM14 18h1v1h-1zM17 18h1v1h-1zM20 18h2v1h-2zM25 18h3v1h-3zM29 18h1v1h-1zM3 19h3v1h-3zM9 19h1v1h-1zM11 19h1v1h-1zM13 19h3v1h-3zM17 19h1v1h-1zM20 19h1v1h-1zM22 19h2v1h-2zM25 19h1v1h-1zM27 19h3v1h-3zM2 20h1v1h-1zM5 20h4v1h-4zM10 20h1v1h-1zM13 20h2v1h-2zM17 20h1v1h-1zM19 20h2v1h-2zM22 20h2v1h-2zM28 20h1v1h-1zM4 21h1v1h-1zM9 21h1v1h-1zM12 21h1v1h-1zM14 21h1v1h-1zM19 21h1v1h-1zM21 21h2v1h-2zM25 21h1v1h-1zM28 21h1v1h-1zM3 22h1v1h-1zM5 22h5v1h-5zM12 22h1v1h-1zM14 22h2v1h-2zM17 22h3v1h-3zM21 22h8v1h-8zM10 23h2v1h-2zM13 23h1v1h-1zM15 23h2v1h-2zM18 23h3v1h-3zM22 23h1v1h-1zM26 23h5v1h-5zM2 24h7v1h-7zM10 24h2v1h-2zM14 24h2v1h-2zM18 24h5v1h-5zM24 24h1v1h-1zM26 24h2v1h-2zM29 24h1v1h-1zM2 25h1v1h-1zM8 25h1v1h-1zM10 25h1v1h-1zM12 25h1v1h-1zM20 25h1v1h-1zM22 25h1v1h-1zM26 25h2v1h-2zM29 25h1v1h-1zM2 26h1v1h-1zM4 26h3v1h-3zM8 26h1v1h-1zM12 26h3v1h-3zM16 26h2v1h-2zM19 26h1v1h-1zM22 26h5v1h-5zM28 26h2v1h-2zM2 27h1v1h-1zM4 27h3v1h-3zM8 27h1v1h-1zM10 27h2v1h-2zM13 27h1v1h-1zM16 27h5v1h-5zM26 27h2v1h-2zM30 27h1v1h-1zM2 28h1v1h-1zM4 28h3v1h-3zM8 28h1v1h-1zM10 28h1v1h-1zM13 28h3v1h-3zM18 28h1v1h-1zM22 28h2v1h-2zM25 28h1v1h-1zM28 28h1v1h-1zM30 28h1v1h-1zM2 29h1v1h-1zM8 29h1v1h-1zM11 29h1v1h-1zM13 29h3v1h-3zM20 29h1v1h-1zM22 29h2v1h-2zM27 29h1v1h-1zM29 29h1v1h-1zM2 30h7v1h-7zM10 30h2v1h-2zM14 30h1v1h-1zM16 30h1v1h-1zM18 30h1v1h-1zM20 30h1v1h-1zM22 30h1v1h-1zM25 30h1v1h-1zM29 30h1v1h-1z"/><path class="qr-eye" fill="currentColor" d="M4 4h3v3h-3zM26 4h3v3h-3zM4 26h3v3h-3z"/></svg>
+        <span class="qr-u">Brno<span>2000</span><small>.cz</small></span>
+      </figure>
+    </div>
+  </section>
+
+  <!-- the lower part: on a monitor a stage where the blocks take turns (src/prehled.js, the dashboard); on a phone the
+       same sections one under another. A "unit" is one column or box, the blocks are put together from them; the column "Teď" stays. -->
+  <div class="stage" id="stage">
+    <section class="grp" aria-labelledby="h-news">
+      <h2 id="h-news" class="sec"><span>Zpravodajství</span></h2>
+      <div class="tabs" role="tablist" aria-label="Zprávy podle času" id="tabs">
+        <button role="tab" type="button" data-t="now" aria-selected="true">Teď <b id="c-now"></b></button>
+        <button role="tab" type="button" data-t="today" aria-selected="false">Dnes <b id="c-today"></b></button>
+        <button role="tab" type="button" data-t="past" aria-selected="false">Stalo se <b id="c-past"></b></button>
+        <button role="tab" type="button" data-t="week" aria-selected="false">Chystá se <b id="c-week"></b></button>
+      </div>
+      <div class="desk" id="desk" data-t="now">
+        <div class="col unit" data-u="now" data-t="now"><h3>Teď</h3><ul class="wire" id="m-now"></ul></div>
+        <div class="col unit" data-u="today" data-t="today"><h3>Dnes</h3><ul class="wire" id="m-today"></ul></div>
+        <div class="col unit" data-u="past" data-t="past"><h3>Stalo se dnes</h3><ul class="wire" id="m-past"></ul></div>
+        <div class="col unit" data-u="week" data-t="week"><h3>Chystá se</h3><ul class="wire" id="m-week"></ul></div>
+      </div>
+    </section>
+
+    <section class="grp grp-dop" aria-labelledby="h-dop">
+      <h2 id="h-dop" class="sec"><span>Doprava a MHD</span></h2>
+      <article class="box unit" data-u="doprava" id="w-doprava"><h3>Doprava a MHD</h3><p class="muted">Načítám…</p></article>
+    </section>
+
+    <section class="grp grp-map" aria-labelledby="h-map">
+      <h2 id="h-map" class="sec"><span>Teď v mapě</span></h2>
+      <article class="box unit mapu" data-u="mapa" id="w-mapa"><header class="bh"><h3>Teď v mapě</h3><p class="big" id="mp-count"></p></header><div class="mp-view" id="mp-view"></div></article>
+    </section>
+
+    <section class="grp" aria-labelledby="h-week">
+      <h2 id="h-week" class="sec"><span>Posledních 7 dní</span></h2>
+      <div class="weekgrid">
+        <article class="box unit" data-u="hasici" id="w-hasici"><h3>Výjezdy hasičů</h3><p class="muted">Načítám…</p></article>
+        <article class="box unit" data-u="policie" id="w-policie"><h3>Policie: případy týdne</h3><p class="muted">Načítám…</p></article>
+        <article class="box unit" data-u="voda" id="w-voda"><h3>Voda: havárie a odstávky</h3><p class="muted">Načítám…</p></article>
+      </div>
+    </section>
+  </div>
+
+  <a class="mapcard" href="./">
+    <img src="./src/img/prehled-mapa.webp" width="560" height="330" alt="" loading="lazy">
+    <span class="mapcard-txt">
+      <span class="mapcard-k logo">Brno<span>2000</span></span>
+      <span class="mapcard-h">Všechno to v živé mapě města</span>
+      <span class="mapcard-s">Šaliny, kolony, zásahy, uzavírky a akce, kreslené v pixelech přes celé Brno</span>
+      <span class="mapcard-b">Otevřít mapu ›</span>
+    </span>
+  </a>
+
+  <section class="fine" id="fine" aria-labelledby="h-src">
+    <h2 id="h-src">Odkud čísla jsou</h2>
+    <p>Všechno je z otevřených nebo veřejných dat: výjezdy hasičů od HZS Jihomoravského kraje (udalosti.firebrno.cz), havárie a odstávky vody od Brněnských vodáren a kanalizací, kolony a hlášení z Waze přes otevřená data města Brna, polohy a zpoždění MHD z KORDIS JMK, výstrahy a ovzduší od ČHMÚ, parkovací domy od Brněnských komunikací, případy z mapy kriminality Policie ČR. Při citaci uveďte původní zdroj, například „podle HZS JMK“, a případně „zpracovala mapa Brno 2000“. Všechna data mapy jsou v <a href="./data.html">Přehledu dat</a>.</p>
+  </section>
+</main>
+
+<!-- the settings of the dashboard (the wheel in the corner under the blocks opens them; src/prehled.js ties the switches
+     to the page and writes what is set into the address). On the dashboard the part "Odkud čísla jsou" moves in here. -->
+<dialog class="setup" id="setup" aria-labelledby="st-h">
+  <div class="st-in" id="st-in">
+    <form class="st-top" method="dialog"><h2 id="st-h">Nastavení přehledu</h2><button class="st-x" aria-label="Zavřít nastavení" title="Zavřít">×</button></form>
+
+    <section>
+      <h3>Střídání bloků</h3>
+      <p>Vedle sloupce Teď se střídají čtyři bloky po 15 sekundách a po nich na 30 sekund mapa. Linka pod nimi je jeden celý okruh a každý blok na ní má díl dlouhý podle svého času. Data se obnovují každou minutu sama.</p>
+      <label class="st-row"><button class="st-sw" id="st-rot" type="button" role="switch" aria-checked="true"><i></i></button><span><b>Střídat bloky</b><small>Když je vypnuto, zůstane na obrazovce jeden blok. Vyberte ho tady:</small></span></label>
+      <div class="st-blocks" id="st-blocks" role="group" aria-label="Blok, který zůstane na obrazovce"></div>
+      <label class="st-row"><button class="st-sw" id="st-mapa" type="button" role="switch" aria-checked="true"><i></i></button><span><b>Mapa mezi bloky</b><small>Obrázek mapy města se značkami toho, co se právě děje: zásahy, kolony, nehody, vozy MHD se zpožděním. Kamera proletí místa nejdůležitějších událostí a každé ukáže vedle jeho popisku.</small></span></label>
+      <label class="st-row st-pick"><span><b>Průlet mapy</b><small>Automaticky: kamera letí, a když to zařízení nestíhá, mapa zůstane stát a střídají se u ní jen popisky.</small></span><select id="st-prulet"><option value="">Automaticky</option><option value="1">Vždy letět</option><option value="0">Nikdy</option></select></label>
+      <p class="st-tip" id="st-dev"></p>
+      <p class="st-tip">Jde to i bez nastavení: klik na název bloku pod linkou ho nechá na obrazovce. Šipky ← → mění blok, mezerník střídání vypne a zapne.</p>
+    </section>
+
+    <section>
+      <h3>Obrazovka, která svítí celý den</h3>
+      <p>Když přehled běží na kiosku nebo na stěně, svítily by pořád stejné body obrazovky a časem by se do ní obraz vypálil. Stránka tomu brání sama:</p>
+      <p><b>Posun obrazu.</b> Každé dvě minuty se celá stránka posune o bod nebo dva, nejvýš o čtyři. Není to vidět a je to zapnuté vždy.</p>
+      <label class="st-row"><button class="st-sw" id="st-skryt" type="button" role="switch" aria-checked="true"><i></i></button><span><b>Schovat ovládání</b><small>Po minutě bez dotyku zmizí odkaz Zpět do mapy a kolečko nastavení, aby na kiosku nerušily. Pohyb myši, dotyk nebo klávesa je hned vrátí.</small></span></label>
+      <label class="st-row"><button class="st-sw" id="st-ztlumit" type="button" role="switch" aria-checked="true"><i></i></button><span><b>Ztlumit, co svítí pořád</b><small>Po 15 minutách bez dotyku se QR kód ztlumí na 60 % a rámeček sloupce Teď ztmavne. Plné barevné plochy (štítek Zprávy, Živě, čtverečky ikon) se změní v obrysy: barva zůstane jen v písmu a v obrázku.</small></span></label>
+      <label class="st-row"><button class="st-sw" id="st-zrcadlit" type="button" role="switch" aria-checked="true"><i></i></button><span><b>Střídat strany</b><small>Po 15 minutách bez dotyku si každou hodinu vymění místo sloupec Teď a QR kód. Dokud s přehledem někdo pracuje, nic se nepřehazuje.</small></span></label>
+      <label class="st-row st-pick"><span><b>Noční útlum</b><small>V těchto hodinách svítí stránka, které se 15 minut nikdo nedotkl, jen na 40 %. Řídí se hodinami zařízení.</small></span><select id="st-noc"><option value="">Vypnuto</option><option value="20-6">20:00 až 6:00</option><option value="22-6">22:00 až 6:00</option><option value="23-5">23:00 až 5:00</option><option value="0-5">0:00 až 5:00</option></select></label>
+      <p class="st-tip">Pohyb myši, dotyk nebo klávesa vrátí jas i ovládání hned. Nejvíc ale pomůže nastavení samotné obrazovky: noční vypínání podle plánu a její vlastní posun bodů, pokud ho má.</p>
+    </section>
+
+    <section>
+      <h3>Adresa s tímto nastavením</h3>
+      <p>Všechno, co tu nastavíte, se zapisuje do adresy stránky a nikam jinam. Zkopírujte ji a pošlete tam, kde se má přehled zobrazit: kiosku, na televizi, kolegovi, nebo si ji uložte do záložek.</p>
+      <output class="st-url" id="st-url"></output>
+      <p class="st-acts"><button class="st-btn" id="st-copy" type="button">Kopírovat adresu</button><button class="st-btn" id="st-full" type="button">Na celou obrazovku</button></p>
+      <p>Obyčejná adresa brno2000.cz/prehled má vždy výchozí nastavení: bloky se střídají a obrazovka se šetří.</p>
+    </section>
+
+    <section>
+      <h3>Rady pro kiosek a velkou obrazovku</h3>
+      <ul class="st-list">
+        <li>Přehled bez posouvání potřebuje okno aspoň 1000 × 620 bodů. V menším okně a na telefonu je stránka, která se posouvá.</li>
+        <li>Písmo roste s výškou obrazovky, na televizi je čitelné i z dálky. Celou obrazovku zapnete tlačítkem výše nebo klávesou F11.</li>
+        <li>Data se obnovují sama každou minutu. Novou verzi stránky ale dostane kiosek až po novém načtení: nastavte mu ho třeba jednou denně.</li>
+        <li>QR kód vede do mapy. Kdo jde kolem, načte si ji do telefonu.</li>
+        <li>Na pomalém zařízení se bloky vymění bez pohybu, aby se obraz netrhal. Stránka to pozná sama a co zjistila, píše v části Střídání bloků.</li>
+        <li>Myš nechte ležet kdekoli: kurzor, který se nehýbe, střídání nezastaví.</li>
+      </ul>
+    </section>
+  </div>
+</dialog>
+<script type="module" src="./src/prehled.js"></script>
+</body>
+</html>

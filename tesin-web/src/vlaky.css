@@ -1,0 +1,45 @@
+/* Vlaky (src/vlaky.js): the departure and arrival board of a railway station, in its card. A dark board with the
+   times in the amber of the station displays; the pixel letters for what is read at a glance (time, line), the body
+   font for the names. Loaded with the module, only where the part "vlaky" is shown. */
+.sec.vlaky { padding-top: 2px; }
+.vl-tabs { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.vl-clock { margin-left: auto; font: 400 1.35rem/1 var(--font-pixel); color: var(--amber); letter-spacing: .04em; }
+/* the way to the real platform: one press opens the board of Správa železnic over the whole page */
+.vl-sz { display: flex; align-items: center; gap: 0 6px; box-sizing: border-box; width: 100%; min-height: 36px; margin: 0 0 6px; padding: 4px 8px; font: 400 .84rem/1.25 var(--font-text); color: var(--text); text-align: left; background: var(--box-in); border: 2px solid var(--rim); border-left: 4px solid var(--amber); cursor: pointer; }
+.vl-sz span { flex: none; }
+.vl-sz b { flex: 1 1 auto; min-width: 0; color: var(--amber); font-weight: 700; }
+.vl-sz i { flex: none; font-style: normal; font-size: 1.05rem; color: var(--amber); }
+.vl-sz:hover, .vl-sz:focus-visible { background: var(--box); }
+.vl-sz:hover b, .vl-sz:focus-visible b { text-decoration: underline; }
+/* … their page in a frame under a thin bar of ours (the name, the same page in a new window, the cross) */
+.vl-full { box-sizing: border-box; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); color: var(--text); background: var(--sky); border: 0; }
+.vl-full[open] { display: flex; flex-direction: column; }
+.vl-fhead { display: flex; flex: none; align-items: center; gap: 10px; min-height: 44px; padding: 4px 6px 4px 12px; background: var(--box); border-bottom: 2px solid var(--rim); }
+.vl-ftitle { flex: 1 1 auto; min-width: 0; overflow: hidden; font: 400 1.15rem var(--font-pixel); letter-spacing: .02em; text-overflow: ellipsis; white-space: nowrap; }
+.vl-fout { flex: none; font-size: .8rem; color: var(--amber); white-space: nowrap; }
+.vl-full .close { flex: none; width: 36px; height: 36px; padding: 0; }
+.vl-frame { display: block; flex: 1 1 auto; width: 100%; min-height: 0; background: #fff; border: 0; }
+.vl-board { width: 100%; border-collapse: collapse; table-layout: fixed; background: #10151f; border: 2px solid #161d2b; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+.vl-board th { padding: 5px 6px 3px; text-align: left; font: 400 .72rem var(--font-text); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #2a3348; }
+.vl-board td { padding: 5px 6px; vertical-align: top; line-height: 1.2; border-bottom: 1px solid #171f2e; }
+.vl-board tbody tr:last-child td { border-bottom: 0; }
+.vl-board .vl-t { width: 4.4rem; white-space: nowrap; }
+.vl-board .vl-n { width: 5.4rem; }
+.vl-board .vl-k { width: 3.6rem; text-align: right; }
+.vl-board td.vl-t b { display: block; font: 400 1.35rem/1 var(--font-pixel); color: var(--amber); letter-spacing: .03em; }
+.vl-late, .vl-ok, .vl-day { display: block; margin-top: 2px; font-size: .74rem; font-style: normal; }
+.vl-late { color: #ff8a7a; }
+.vl-late.much { color: #ff6a5a; font-weight: 700; }
+.vl-ok { color: #7fd48a; }
+.vl-day { color: var(--faint); }
+/* the line of the integrated transport: S blue, R in the red of the pressed buttons (light text reads on both) */
+.vl-line { display: inline-block; box-sizing: border-box; min-width: 2rem; padding: 1px 4px; text-align: center; font: 400 1.05rem/1.15 var(--font-pixel); color: #fff; background: #2b62c4; }
+.vl-line.r { background: var(--brick-on); }
+.vl-no { font-size: .78rem; color: var(--faint); white-space: nowrap; }
+.vl-line + .vl-no { display: block; margin-top: 2px; }
+/* a train without a line (long-distance): its number takes the place of the badge */
+.vl-no.d, .vl-no.o { font: 400 1.05rem/1.15 var(--font-pixel); color: var(--text); }
+.vl-board small { display: block; margin-top: 2px; font-size: .72rem; color: var(--faint); }
+.vl-to b { font-size: .95rem; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.vl-none { font-size: .85rem; color: var(--faint); }
+.vl-more { margin-top: 6px; }

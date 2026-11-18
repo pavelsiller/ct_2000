@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Přehled dat · Brno 2000, izometrická mapa Brna</title>
+<meta name="description" content="Všechna otevřená data, ze kterých je poskládaná mapa Brno 2000: zdroj, vlastník, licence, počet záznamů, stáří a odkazy.">
+<meta name="author" content="Mirek Kubásek">
+<meta property="og:title" content="Přehled dat v mapě Brno 2000">
+<meta property="og:description" content="Všechna otevřená data, ze kterých je poskládaná izometrická mapa Brna: zdroj, vlastník, licence, počet záznamů, stáří a odkazy.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="cs_CZ">
+<meta property="og:site_name" content="Brno 2000">
+<meta property="og:image" content="%OGIMAGE%">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<!--#ogurl-->
+<meta name="twitter:card" content="summary_large_image">
+<!--#datasets-->
+<link rel="icon" href="%BASE%favicon.ico?v=%ICONV%" sizes="32x32">
+<link rel="icon" href="%BASE%favicon.svg?v=%ICONV%" type="image/svg+xml">
+<link rel="apple-touch-icon" href="%BASE%apple-touch-icon.png?v=%ICONV%">
+<link rel="mask-icon" href="%BASE%safari-pinned-tab.svg?v=%ICONV%" color="#c9583b">
+<link rel="manifest" href="%BASE%manifest.webmanifest?v=%ICONV%">
+<meta name="theme-color" content="#161d2b">
+<meta name="application-name" content="Brno 2000">
+<meta name="apple-mobile-web-app-title" content="Brno 2000">
+<!--#oldkeys-->
+<link rel="stylesheet" href="./src/datapage.css">
+<!--#stats-->
+</head>
+<body>
+<header>
+  <a class="back" href="./">‹ Zpět na mapu</a>
+  <h1>Přehled dat v mapě Brno 2000</h1>
+  <p>Všechna data, ze kterých je mapa poskládaná: co ukazují, odkud jsou, kdo je vlastní, pod jakou licencí, kolik záznamů mají, jak jsou stará a jestli se načítají živě.</p>
+  <p id="summary" class="summary"></p>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Hledat (název, zdroj, vlastník, licence…)" aria-label="Hledat v datech">
+    <label>Typ: <select id="mode"><option value="">vše</option><option value="live">živě</option><option value="regular">obnovováno</option><option value="snapshot">stav k datu</option></select></label>
+    <button id="csv" type="button">Stáhnout jako CSV</button>
+  </div>
+</header>
+<main>
+  <table id="tbl">
+    <thead><tr>
+      <th data-k="name">Data</th>
+      <th data-k="owner">Zdroj a vlastník</th>
+      <th data-k="licence">Licence</th>
+      <th data-k="count" class="num">Počet záznamů</th>
+      <th data-k="date">Aktuálnost</th>
+      <th data-k="mode">Typ</th>
+      <th>Více informací</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="muted">Klikněte na záhlaví sloupce pro řazení. „Stáří“ je počet dní od posledního stažení nebo od data, ke kterému data platí.</p>
+  <section id="links" class="links-sec" hidden>
+    <h2>Nachystané odkazy</h2>
+    <p>Krátké adresy, které mapu otevřou rovnou s jedním tématem: jeho vrstva se zapne, body se zvýrazní a mapa se nastaví tak, aby byly vidět všechny. Hodí se ke sdílení, každá má vlastní náhled.</p>
+    <ul id="linkList"></ul>
+  </section>
+</main>
+<script type="module" src="./src/datapage.js"></script>
+</body>
+</html>

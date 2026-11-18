@@ -1,0 +1,36 @@
+@import './fonts.css';
+/* "Přehled dat" page, in the colours of the map panel */
+:root { --bg: #121827; --box: #161d2b; --text: #f0f2ea; --faint: #a9b1a0; --rim: #3a4560; --leaf: #93c96a; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header, main { max-width: 1300px; margin: 0 auto; padding: 16px; }
+h1 { font-family: "VT323", monospace; font-weight: 400; font-size: 2rem; margin: 8px 0; color: var(--leaf); }
+a { color: #9fd0f5; }
+.back { display: inline-block; margin-bottom: 4px; }
+.summary { color: var(--faint); }
+.tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+.tools input { flex: 1 1 280px; font: inherit; padding: 6px 8px; background: var(--box); color: var(--text); border: 2px solid var(--rim); }
+.tools select, .tools button { font: inherit; background: var(--box); color: var(--text); border: 2px solid var(--rim); padding: 5px 8px; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; background: var(--box); }
+th { text-align: left; font-weight: 600; color: var(--leaf); border-bottom: 2px solid var(--rim); padding: 8px; position: sticky; top: 0; background: var(--box); cursor: pointer; white-space: nowrap; }
+th[aria-sort=ascending]::after { content: ' ▲'; } th[aria-sort=descending]::after { content: ' ▼'; }
+td { vertical-align: top; padding: 8px; border-bottom: 1px solid #2c3550; }
+td.num, th.num { text-align: right; }
+.what { color: var(--faint); font-size: 13px; }
+.links a { display: block; font-size: 13px; }
+.mode { display: inline-block; padding: 1px 6px; color: #161d2b; font-weight: 600; white-space: nowrap; }
+.m-live { background: #5cc062; } .m-regular { background: #f3c868; } .m-snapshot { background: #9aa3ad; }
+.muted { color: var(--faint); }
+@media (max-width: 760px) {
+  thead { display: none; }
+  table, tbody, tr, td { display: block; width: 100%; }
+  tr { border-bottom: 2px solid var(--rim); padding: 6px 0; }
+  td { border: 0; padding: 3px 8px; }
+  td.num { text-align: left; }
+}
+/* Nachystané odkazy (data.html, src/datapage.js) */
+.links-sec { margin: 28px 0 8px; }
+.links-sec h2 { font-size: 1.15rem; margin: 0 0 6px; }
+.links-sec ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px; }
+.links-sec li a { display: inline-block; margin-right: 10px; font-weight: 700; }
+.period { display: block; font-weight: 600; } /* (the time the data describe, above the date they were processed) */

@@ -1,0 +1,8 @@
+{
+  "name": "Český Těšín 2000",
+  "description": "Izometrická pixel-art mapa města Český Těšín ve stylu SimCity 2000 z otevřených dat (izomapa + brno2000).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

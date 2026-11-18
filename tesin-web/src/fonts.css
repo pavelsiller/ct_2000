@@ -1,0 +1,6 @@
+/* The three typefaces, served with the page (npm @fontsource) instead of from Google Fonts: no third-party
+   request before the first paint, no visitor IP for Google. Latin and latin-ext (Czech) subsets, font-display: swap. */
+@import '@fontsource/jersey-15/index.css';
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
+@import '@fontsource/vt323/index.css';

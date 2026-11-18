@@ -1,0 +1,6 @@
+{
+  "summary": "Implementační plán pro čtyřfázovou tvorbu izometrické pixel-art mapy celého katastrálního území Českého Těšína (Český Těšín 2000) pomocí nástrojů izomapa a brno2000, včetně správy dat GTFS/ČÚZK, optimalizace pro limity GitHubu a bezpečného renderování v kontejnerovém prostředí.",
+  "updatedAt": "2026-11-18T08:46:09.493816165Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

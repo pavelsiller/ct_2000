@@ -1,0 +1,36 @@
+{
+  "name": "Brno 2000 – živá pixelová mapa Brna",
+  "short_name": "Brno 2000",
+  "description": "Celé Brno jako na dlani: šaliny naživo, aktuální výkopy a počasí. Vše z otevřených dat.",
+  "lang": "cs",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1b2333",
+  "theme_color": "#1b2333",
+  "icons": [
+    {
+      "src": "icon-192.png?v=da4b2f2a",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png?v=f3315fca",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-maskable-192.png?v=c89c3182",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-maskable-512.png?v=d9be7599",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

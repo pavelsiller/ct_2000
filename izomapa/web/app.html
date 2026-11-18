@@ -1,0 +1,159 @@
+<title>{{TITULEK}}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="{{POPIS}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+<!-- @css -->
+</style>
+
+<div id="map" aria-label="Izometrická pixel-art mapa {{MESTO}}"><div id="osd"></div><div id="pluginLayers"></div><canvas id="fx"></canvas></div>
+<div class="loading" id="loading">Načítám mapu…</div>
+
+<button class="fold" id="fold" type="button" aria-controls="panel" aria-expanded="true" aria-label="Zasunout panel" title="Zasunout panel">‹</button>
+<div class="izomapa-slot-tabs" id="pluginTabsSlot"></div>
+<aside class="panel" id="panel">
+  <div class="head">
+    <div>
+      <h1>{{H1_A}} <span>{{H1_B}}</span></h1>
+      <p class="sub" id="sub">{{PODTITUL}}</p>
+    </div>
+    <div class="head-btns">
+      <button class="px-btn help-btn" id="help" type="button" aria-label="Nápověda a o projektu" title="Nápověda a o projektu">?</button>
+      <button class="px-btn menu-btn" id="menu" type="button" aria-expanded="true">Menu</button>
+    </div>
+  </div>
+
+  <div class="search">
+    <label class="label" for="q">Hledat</label>
+    <input id="q" type="search" placeholder="Ulice, adresa nebo místo" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    <ul class="results" id="results"></ul>
+  </div>
+
+  <div>
+    <p class="label">Zobrazit</p>
+    <div class="chips2" id="wipSel">
+      <button class="px-btn" type="button" data-wip="0">Hotovo</button>
+      <button class="px-btn" type="button" data-wip="1">Vč. rozpracovaného</button>
+    </div>
+  </div>
+
+  <div>
+    <p class="label">Roční období</p>
+    <div class="chips4" id="seasons">
+      <button class="px-btn" type="button" data-s="spring">Jaro</button>
+      <button class="px-btn" type="button" data-s="summer">Léto</button>
+      <button class="px-btn" type="button" data-s="autumn">Podzim</button>
+      <button class="px-btn" type="button" data-s="winter">Zima</button>
+    </div>
+  </div>
+
+  <div class="daynight">
+    <label class="label" for="night">Denní doba</label>
+    <input id="night" type="range" min="0" max="100" value="0">
+    <div class="ends"><span>Den</span><span>Zlatá hodinka</span><span>Noc</span></div>
+    <label class="realtime"><input type="checkbox" id="realTime"> Podle skutečného času</label>
+  </div>
+
+  <div>
+    <p class="label">Počasí</p>
+    <div class="chips4" id="weather">
+      <button class="px-btn" type="button" data-w="clear">Jasno</button>
+      <button class="px-btn" type="button" data-w="rain">Déšť</button>
+      <button class="px-btn" type="button" data-w="snow">Sníh</button>
+      <button class="px-btn" type="button" data-w="fog">Mlha</button>
+    </div>
+    <label class="realtime" id="realWeatherRow" hidden><input type="checkbox" id="realWeather"> Podle skutečného počasí</label>
+  </div>
+
+  <div>
+    <p class="label">Vrstvy</p>
+    <div class="layers">
+      <label><input type="checkbox" id="l-labels" checked> Popisky</label>
+      <label><input type="checkbox" id="l-traffic" checked> Doprava</label>
+      <label><input type="checkbox" id="l-people" checked> Lidé</label>
+      <label><input type="checkbox" id="l-smoke" checked> Kouř z&nbsp;komínů</label>
+      <label hidden><input type="checkbox" id="l-xmas"> Vánoční výzdoba</label>
+      <label><input type="checkbox" id="l-hover" checked> Zvýraznit budovy</label>
+    </div>
+  </div>
+
+  <details id="placesBox">
+    <summary>Místa a&nbsp;příběhy</summary>
+    <ul class="places" id="places"></ul>
+  </details>
+
+  <details class="about">
+    <summary>O&nbsp;projektu</summary>
+    <p>Mapa vznikla nástrojem <a href="https://github.com/adamklatovsky/izomapa" target="_blank" rel="noopener">izomapa</a> z&nbsp;otevřených dat. Budovy, adresy, silnice, voda a&nbsp;zeleň pochází z&nbsp;Overture Maps (OpenStreetMap), terén z&nbsp;modelu Terrarium, výšky budov, les a&nbsp;pole z&nbsp;dat ČÚZK. Lampy podél ulic, zaparkovaná auta, popelnice, hroby a&nbsp;část stromů v&nbsp;zahradách jsou doplněné podle typu území, nejde o&nbsp;přesné polohy.</p>
+    <p><strong>Co je izometrie?</strong><br>Pohled shora a&nbsp;šikmo bez perspektivy: čáry se do dálky nesbíhají a&nbsp;věci si drží svou skutečnou velikost bez ohledu na to, jak daleko jsou od pozorovatele. Dům na kraji mapy je stejně velký jako ten uprostřed. Tenhle styl si pamatuje každý, kdo koncem 90. let trávil hodiny u&nbsp;SimCity a&nbsp;podobných budovatelských her.</p>
+  </details>
+</aside>
+
+<div class="follow" id="follow" hidden aria-live="polite"><span id="followTxt"></span><button class="px-btn" id="followStop" type="button" aria-label="Přestat sledovat">×</button></div>
+<section class="card" id="card" hidden aria-live="polite">
+  <div class="grab" id="grab" aria-hidden="true"></div>
+  <button class="px-btn close" id="cardClose" type="button" aria-label="Zavřít">×</button>
+  <h2 id="cardTitle"></h2>
+  <p id="cardText" hidden></p>
+  <dl id="cardDl"></dl>
+  <div class="links" id="cardLinks"></div>
+  <details class="report" id="report" hidden>
+    <summary>Nahlásit nepřesnost</summary>
+    <form id="reportForm">
+      <textarea id="repNote" rows="3" maxlength="500" required placeholder="Co tu nesedí se skutečností?"></textarea>
+      <button class="px-btn" type="submit">Odeslat</button>
+      <span id="repMsg" role="status"></span>
+    </form>
+  </details>
+</section>
+
+<div class="minimap" id="minimap">
+  <canvas id="mini" width="220" height="128" aria-label="Minimapa: kliknutím přesunete pohled"></canvas>
+  <div class="scale" id="scale">1&nbsp;px = 20&nbsp;cm</div>
+</div>
+<div class="controls">
+  <button class="px-btn" id="zin" type="button" title="Přiblížit">+</button>
+  <button class="px-btn" id="zout" type="button" title="Oddálit">−</button>
+  <button class="px-btn" id="home" type="button" title="Celá mapa">⌂</button>
+  <button class="px-btn" id="share" type="button" title="Sdílet tento pohled" aria-label="Sdílet tento pohled"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/><path d="M8 10H5v11h14V10h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></button>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+<dialog class="help" id="helpDlg" aria-labelledby="helpTitle">
+  <button class="px-btn close" id="helpClose" type="button" aria-label="Zavřít">×</button>
+  <h2 id="helpTitle">O&nbsp;mapě</h2>
+  <p><button class="px-btn app-btn" id="plochaBtn" type="button">📱 Přidat na plochu</button></p>
+  <p>{{POPIS}}</p>
+  <h3>Ovládání</h3>
+  <ul>
+    <li><b>Posun a&nbsp;přiblížení:</b> tažení myší nebo prstem, kolečko nebo dva prsty. Dvojklik přiblíží.</li>
+    <li><b>Budova:</b> klikněte na ni a&nbsp;ukáže se název, adresa a&nbsp;odkaz na Mapy.cz.</li>
+    <li><b>Roční období, denní doba a&nbsp;počasí</b> se přepínají v&nbsp;menu. Na mobilu jsou roční období a&nbsp;denní doba i&nbsp;ve spodní liště.</li>
+    <li><b>Hledání</b> zná ulice, adresy, budovy i&nbsp;zajímavá místa.</li>
+    <li><b>Sdílet</b> <span class="ico-inline"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/><path d="M8 10H5v11h14V10h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span> zkopíruje odkaz přesně na to, co právě vidíte, včetně ročního období a&nbsp;denní doby.</li>
+  </ul>
+  <p class="muted">Vytvořeno nástrojem <a href="https://github.com/adamklatovsky/izomapa" target="_blank" rel="noopener">izomapa</a> od <a href="https://www.adamklatovsky.cz/" target="_blank" rel="noopener">Adama Klatovského</a> (původní mapa: <a href="https://izomapa.fun" target="_blank" rel="noopener">izometrický Liberec</a>).<br>
+  Mapová data © přispěvatelé <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL) a&nbsp;Overture Maps, terén Terrarium (AWS Open Data), výšky budov a&nbsp;stromů, ortofoto a&nbsp;ZABAGED{{RUIAN_ZDROJ}} © <a href="https://geoportal.cuzk.cz/" target="_blank" rel="noopener">ČÚZK</a> (CC BY 4.0){{MHD_ZDROJ}}{{VITR_ZDROJ}}{{LETADLA_ZDROJ}}{{DOPRAVA_ZDROJ}}.</p>
+</dialog>
+<dialog class="help plocha" id="plochaDlg" aria-labelledby="plochaTitle">
+  <button class="px-btn close" id="plochaClose" type="button" aria-label="Zavřít">×</button>
+  <h3 id="plochaTitle">Mapa jako aplikace</h3>
+  <p>Ikona na ploše otevře mapu rovnou přes celou obrazovku, bez lišty prohlížeče.</p>
+  <p class="pl-os" id="plInstall" hidden><button class="px-btn" id="plochaGo" type="button">Přidat na plochu</button></p>
+  <div class="pl-os" data-os="ios"><h4>iPhone a iPad (Safari)</h4><ol><li>Dole klepněte na <b>Sdílet</b> (čtvereček se šipkou nahoru).</li><li>Vyberte <b>Přidat na plochu</b>.</li><li>Potvrďte <b>Přidat</b>.</li></ol></div>
+  <div class="pl-os" data-os="android"><h4>Android (Chrome)</h4><ol><li>Vpravo nahoře klepněte na <b>⋮</b>.</li><li>Vyberte <b>Přidat na plochu</b> nebo <b>Instalovat aplikaci</b>.</li><li>Potvrďte <b>Instalovat</b>.</li></ol></div>
+  <div class="pl-os" data-os="pc"><h4>Počítač (Chrome, Edge)</h4><ol><li>V adresním řádku vpravo klikněte na ikonu <b>Instalovat</b> (monitor se šipkou).</li><li>Nebo v menu <b>⋮</b> zvolte <b>Uložit a sdílet → Instalovat stránku jako aplikaci</b>.</li></ol><p>V Safari na Macu: <b>Soubor → Přidat do Docku</b>.</p></div>
+</dialog>
+<nav class="mbar" id="mbar" aria-label="Rychlé ovládání">
+  <button class="px-btn" type="button" data-s="spring">Jaro</button>
+  <button class="px-btn" type="button" data-s="summer">Léto</button>
+  <button class="px-btn" type="button" data-s="autumn">Podzim</button>
+  <button class="px-btn" type="button" data-s="winter">Zima</button>
+  <button class="px-btn" type="button" id="mTime">Den</button>
+  <button class="px-btn" type="button" id="mShare" aria-label="Sdílet tento pohled"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/><path d="M8 10H5v11h14V10h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js" integrity="sha384-4BsIv4BUV37POdA1NZ6UcVAsFk96MQXmFLog7pWs+JP+a8k2XjilfManEVdWDxTe" crossorigin="anonymous"></script>
+<script>
+<!-- @js -->
+</script>

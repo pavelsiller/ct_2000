@@ -1,0 +1,62 @@
+# vygenerované (každý si je vyrobí sám)
+node_modules/
+.venv/
+__pycache__/
+build/
+data/
+data_*/
+site/
+.DS_Store
+# podklady, které nepatří do veřejného repa (fotky, screenshoty map)
+fotky/
+podklady/
+# vygenerovaná data ČÚZK (python dmp_vysky.py, nastroje/zabaged.py)
+assets/zabaged.json
+assets/dmp_vysky.json
+assets/strechy_orto.json
+assets/hrebeny.json
+
+# vlastní modely památek tvého města a jejich výběr (sdílené jsou jen nástroje, stavebnice a návody v pamatky/)
+/pamatky/*.json
+/pamatky/*.js
+/pamatky/*.tmp
+!/pamatky/_kit.js
+!/pamatky/_ukazka.js
+!/pamatky/_drobne.js
+
+# konfigurace tvého města (python novy_mesto.py); ukázka je v priklady/mesto.json
+/mesto.json
+/mista.json
+/obce/
+
+# vlastní úpravy konkrétního města (ukázky jsou v priklady/)
+assets/custom_prep.py
+assets/custom_models.js
+assets/upresneni.json
+assets/dominanty.json
+assets/oblasti.json
+assets/doplnky.json
+assets/doplnky/
+
+# hlášení: vlastní konfigurace a hesla serveru
+/wrangler.jsonc
+.dev.vars
+.wrangler/
+assets/ruian_budovy.json
+assets/kominy.json
+assets/prejezdy.json
+assets/potrubi.json
+
+# soukromé podklady a tajemství (nikdy do veřejného repa)
+podklady-soukrome/
+Fotky k nahrání/
+Satelitni snimky/
+output/
+.env*
+.dev.vars
+*.sql
+*.sqlite
+.vercel/
+hlaseni/wrangler.jsonc
+wrangler.toml
+!hlaseni/migrations/*.sql

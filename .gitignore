@@ -1,0 +1,7 @@
+node_modules/
+.next/
+izomapa/.venv/
+izomapa/build/
+izomapa/data*/
+izomapa/node_modules/
+tesin-web/node_modules/

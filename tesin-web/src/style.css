@@ -1,0 +1,2056 @@
+@import './fonts.css';
+
+/* ==== The base of the map page ====
+   The map fills the screen and boxes float over it: the panel at the top left, the card and the map buttons at the
+   bottom right, the minimap at the bottom left. On a phone the panel is a bar at the top, the panes a bar at the
+   bottom, and the card a sheet that slides up above it. */
+
+/* ---- tokens ---- */
+:root {
+  --sky: #161d2b;
+  --box: #1e2739;
+  --box-in: #171f2e;
+  --rim: #384563;
+  --text: #f0f2ea;
+  --faint: #adb6c6;
+  --brick: #c9583b;
+  --brick-on: #b04a30; /* the pressed buttons and the badges with text on them: --brick a touch darker, so the light text reads (4.7:1, WCAG AA) */
+  --brick-lit: #e27a5c; /* the rim of a pressed button */
+  --leaf: #93c96a;
+  --amber: #f3c868;
+  --font-pixel: "Jersey 15", "Courier New", monospace; /* clear pixel letters: B, 8, Z, S and 2 are easy to tell apart */
+  --font-text: "Atkinson Hyperlegible", system-ui, sans-serif;
+  /* the line around a box and its hard pixel shadow */
+  --rim-line: 2px solid var(--rim);
+  --shade: rgba(0, 0, 0, .35);
+  --drop: 4px 4px 0 var(--shade);
+  --drop-s: 2px 2px 0 var(--shade);
+  /* the screen: its safe area (notch, home bar) and where a floating box stands, --pad from the edge or past the safe area */
+  --pad: 16px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --from-top: calc(var(--safe-t) + var(--pad));
+  --from-right: max(var(--pad), var(--safe-r));
+  --from-bottom: calc(var(--safe-b) + var(--pad));
+  --from-left: max(var(--pad), var(--safe-l));
+  color-scheme: dark;
+  padding-block: var(--safe-t) var(--safe-b);
+}
+
+/* ---- Kontrastní zobrazení ----
+   The ◐ button beside ? (src/main.js; set before the first paint by the script at the top of <body>, also when the
+   system asks for more contrast). Black panels, white text and white lines; nothing is muted grey; the pressed state
+   and the focus ring are unmistakable. Text on a panel 21:1, on a pressed button 8:1, headings and highlights 14:1+.
+   The letters are an eighth bigger: nearly every size of the page is in rem, so the base of rem is raised (and the
+   text that takes its size from <body>, 14 px, with it). */
+:root[data-kontrast] {
+  --sky: #000; --box: #000; --box-in: #141414; --rim: #fff; --text: #fff; --faint: #e6e6e6;
+  --brick: #b3471c; --brick-on: #8a3212; --brick-lit: #ffb08a; --leaf: #b8f58a; --amber: #ffd84a;
+}
+:root[data-kontrast] { font-size: 112.5%; }
+:root[data-kontrast] body { font-size: .875rem; }
+:root[data-kontrast] :focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+/* (two things stand in boxes of a fixed size and keep the size of their letters: the names under the tiles of the
+   themes, and on a phone the logo beside the four buttons of the head) */
+:root[data-kontrast] .qt .l { font-size: .534rem; }
+@media (max-width: 640px) { :root[data-kontrast] h1 { font-size: 1.65rem; } }
+
+/* ---- the page ---- */
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; color: var(--text); font: 14px var(--font-text); }
+body, #map { background: var(--sky); }
+button { color: inherit; font: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+
+/* ---- the map ---- */
+#map { position: fixed; inset: 0; }
+#viewer { height: 100%; }
+#viewer .openseadragon-canvas { transition: filter .4s ease; }
+/* the overlay reaches 48 px beyond the map on every side (bleed, src/main.js) from the first paint; src/fx.js used to
+   set it only when the script ran and the canvas jumped (CLS). Keep 48 in step with bleed in main.js */
+#mapOver { position: absolute; inset: -48px; width: calc(100% + 96px); height: calc(100% + 96px); pointer-events: none; }
+#pins { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* pixel art stays sharp when it is scaled */
+#map canvas, .minimap canvas, .loading-logo { image-rendering: pixelated; }
+
+/* ---- the boxes floating over the map: one surface ---- */
+.panel, .tuck, .card, .minimap, .toast, .snap { background: var(--box); border: var(--rim-line); box-shadow: var(--drop); }
+
+/* ---- the panel ---- */
+.panel {
+  position: fixed; z-index: 3; top: var(--from-top); left: var(--from-left);
+  box-sizing: border-box; width: min(408px, calc(100vw - 2 * var(--pad)));
+  max-height: calc(100% - 190px - var(--safe-t) - var(--safe-b));
+  /* one column that never grows with its content: a long line inside is cut by its own rules, it does not widen the panel */
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px;
+  padding: 14px calc(16px - var(--gut, 0px)) 14px 16px; overflow: auto; transition: transform .2s ease;
+}
+.panel, .card > .sheet-body, .events > .sheet-body, .fc-pop > .sheet-body, .pane > .sheet-body {
+  scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--rim) transparent;
+}
+/* the tab at the edge of the panel that tucks it away */
+.tuck {
+  position: fixed; z-index: 3; top: calc(var(--safe-t) + 28px);
+  left: calc(var(--from-left) + var(--pw, 408px)); transition: left .2s ease;
+  display: grid; place-items: center; width: 22px; height: 52px; padding: 0; border-left: 0;
+  color: var(--faint); font-family: var(--font-pixel); font-size: 1rem; cursor: pointer;
+}
+.tuck:is(:hover, :focus-visible) { background: var(--box-in); color: var(--text); }
+.tuck .tuck-ham { display: none; }
+/* folded: no arrow, a ☰ button in the top left corner (as on phones), level with the tiles in the top right */
+.folded .tuck {
+  left: var(--from-left); top: var(--from-top); width: 36px; height: 36px;
+  border: var(--rim-line); background: var(--box-in); box-shadow: var(--drop-s); color: var(--text);
+}
+.folded .tuck .tuck-arrow { display: none; }
+.folded .tuck .tuck-ham { display: block; width: 16px; height: 16px; }
+@media (min-width: 641px) {
+  /* folded, the panel slides out by its own width, its left gap and the safe area: on an iPhone lying on its side the
+     notch side has an inset of ~47 px, the panel starts that far in, and without it a strip of the panel stayed on
+     screen over the › button. A phone has no folding of this kind, so the rule is for wider screens only. */
+  .folded .panel { transform: translateX(calc(-100% - 24px - var(--safe-l))); }
+  /* the panel folded away: the name stays beside the ☰ button, where the panel head was (plain text, no box) */
+  .folded .brand {
+    display: block; white-space: nowrap; position: fixed; z-index: 3; user-select: none;
+    top: var(--from-top); left: calc(var(--from-left) + 36px + 14px); height: 36px; line-height: 36px;
+    font-family: var(--font-pixel); font-weight: 500; font-size: 2.1rem; letter-spacing: .01em; color: var(--text); opacity: .92;
+    text-shadow: 1px 0 0 var(--sky), -1px 0 0 var(--sky), 0 1px 0 var(--sky), 0 -1px 0 var(--sky), 3px 3px 0 rgba(0, 0, 0, .55);
+  }
+  .folded .brand span { color: var(--brick); }
+  .folded .brand .tld { font-size: .68em; color: var(--faint); font-weight: 400; letter-spacing: .02em; vertical-align: baseline; }
+}
+
+/* ---- the head of the panel: the name and the square buttons ---- */
+.head { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 0 8px; }
+.head h1 { flex: 1 1 0; min-width: 0; align-self: center; }
+h1 { margin: 0; font: 500 1.75rem/1 var(--font-pixel); text-wrap: balance; }
+/* the logo: 2000 in brick, and a hair of space between Brno and 2000, narrower than a word space */
+h1 > span:not(.vh) { color: var(--brick); }
+h1 > span:not(.vh), .brand span { margin-left: .1em; }
+h1 .tld { font-size: .68em; color: var(--faint); font-weight: 400; letter-spacing: .02em; }
+.sub { margin: 4px 0 0; font-size: .82rem; line-height: 1.4; color: var(--faint); }
+.head-tools { display: flex; align-items: start; gap: 6px; }
+.head-tools .panel-close { display: none; } /* (two classes: .sq-btn below would show it again on phones, where the fold arrow beside it does the job) */
+@media (min-width: 641px) {
+  .head h1 { white-space: nowrap; font-size: 2.1rem; } /* as big as the logo beside the ☰ of the folded panel */
+  /* the panel is closed by the × in its head (right of ?, a little apart); the ☰ in the corner opens it again */
+  body:not(.folded) .tuck { display: none; }
+  .head-tools .panel-close { display: inline-grid; margin-left: 8px; font-size: 1.3rem; }
+}
+
+/* ---- type and buttons ---- */
+/* small pixel capitals: the headings of the groups in the panel */
+.label, details summary { font-family: var(--font-text); font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--leaf); }
+.label { margin: 0 0 6px; }
+details summary { cursor: pointer; }
+/* (border-box for every .pbtn: a <button> is border-box by the browser, a link <a class="pbtn"> is not and came out
+   wider by its padding and border: the rows Brno teď and Sdílet na Facebooku in Více stuck out of the panel) */
+.pbtn {
+  box-sizing: border-box; min-height: 36px; padding: 6px 8px;
+  background: var(--box-in); border: var(--rim-line); box-shadow: var(--drop-s);
+  color: var(--text); font-family: var(--font-text); font-weight: 700; font-size: .9rem; cursor: pointer;
+}
+.pbtn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--shade); }
+.pbtn[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit); }
+.pbtn:disabled { opacity: .4; cursor: not-allowed; }
+.pbtn .ico { display: block; width: 18px; height: 18px; margin: auto; }
+.sq-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; font-size: 1rem; }
+.ico-inline svg { vertical-align: -2px; width: 14px; height: 14px; }
+
+/* ---- the search and the plain lists of buttons (results, places) ---- */
+.search input {
+  box-sizing: border-box; width: 100%; padding: 8px 10px;
+  background: var(--box-in); border: var(--rim-line); color: var(--text); font: inherit; font-size: .95rem;
+}
+.search input::placeholder { color: var(--faint); }
+.results, .places { display: grid; gap: 1px; padding: 0; list-style: none; }
+.results { margin: 4px 0 0; }
+.places { margin: 8px 0 0; }
+:is(.results, .places) button { all: unset; box-sizing: border-box; width: 100%; padding: 6px 8px; font-size: .9rem; cursor: pointer; }
+.results button { display: flex; justify-content: space-between; gap: 8px; }
+:is(.results, .places) button:is(:hover, :focus-visible), .results button.on { background: var(--box-in); outline: 1px solid var(--rim); }
+.results small { font-size: .72rem; color: var(--faint); white-space: nowrap; }
+/* the offer under the empty field (src/moje.js): a heading above the things kept and above what was searched for lately */
+.results .res-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 8px 2px; font-family: var(--font-text); font-weight: 700; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--leaf); }
+.results .res-head .res-clear { all: unset; box-sizing: border-box; width: auto; cursor: pointer; padding: 2px 4px; font-family: var(--font-text); font-size: .72rem; letter-spacing: 0; text-transform: none; color: var(--faint); text-decoration: underline; }
+.results .res-head .res-clear:hover, .results .res-head .res-clear:focus-visible { color: var(--text); background: none; outline: 1px solid var(--rim); }
+
+/* ---- the groups of the panes: rows of four buttons and the switches of the layers ---- */
+.row4 { display: grid; gap: 6px; grid-template-columns: repeat(4, 1fr); }
+.layers { display: grid; gap: 6px 12px; grid-template-columns: repeat(2, 1fr); }
+.layers label { display: flex; align-items: center; gap: 8px; min-height: 24px; font-size: .88rem; cursor: pointer; }
+.layers input { width: 16px; height: 16px; accent-color: var(--leaf); }
+
+/* ---- who stands behind the map ---- */
+.about p { margin: 6px 0 0; font-size: .8rem; line-height: 1.45; color: var(--faint); }
+/* names and links inside running text keep the colour of the text */
+.about strong, .about .author, .about a, .card a, dialog.modal a { color: var(--text); }
+/* the button "Licence a autorství" under the author (src/about.html): opens the help at that section */
+.about a.lic-link { display: inline-grid; place-items: center; box-sizing: border-box; text-decoration: none; padding: 6px 12px; margin-top: 4px; }
+
+/* ---- the card of a place ----
+   (it is a column with a scrolling body: display and overflow come from the sheet rules further down) */
+.card {
+  position: fixed; z-index: 4; right: var(--from-right); bottom: calc(var(--safe-b) + 70px);
+  width: min(330px, calc(100vw - 2 * var(--pad))); max-height: 60%;
+  gap: 8px; padding: 12px 14px; border-color: var(--brick);
+}
+.card h2 { margin: 0; padding-right: 34px; font: 500 1.2rem/1.1 var(--font-pixel); text-wrap: balance; }
+/* the head: the title, then the card's quick action (Nastoupit) level with × at the top right */
+.card-head { display: flex; align-items: flex-start; gap: 8px; }
+.card-head h2 { flex: 1 1 auto; min-width: 0; }
+.card-head:has(.card-act:not(:empty)) h2 { padding-right: 0; }
+.card-act { flex: none; margin: -6px 34px 0 0; }
+.card-act:empty { display: none; }
+/* Nastoupit stands out as the thing to try (the lamp yellow); while riding it is pressed like the other toggles */
+.card-act .ride-btn { min-width: 0; min-height: 32px; padding: 3px 10px; background: var(--amber); border-color: #ffe29a; color: var(--sky); }
+.card-act .ride-btn:hover, .card-act .ride-btn:focus-visible { background: #ffd987; outline: none; }
+.card-act .ride-btn[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit); color: var(--text); }
+/* the text of the card: no outer margins, one size */
+.card p, .card dl, .card dd { margin: 0; }
+.card p, .card dl, .card .links { font-size: .86rem; }
+.card p { line-height: 1.45; }
+.card dl { display: grid; gap: 3px 10px; grid-template-columns: auto 1fr; }
+.card dt { color: var(--faint); }
+.card dd { font-variant-numeric: tabular-nums; }
+.card .links { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .links .src { flex-basis: 100%; color: var(--faint); font-size: .72rem; }
+.card dl:empty, .card .links:empty { display: none; }
+.card .close { position: absolute; inset: 6px 6px auto auto; width: 32px; height: 32px; padding: 0; }
+.card-back { justify-self: start; align-self: flex-start; margin-right: 44px; }
+@media (max-width: 640px) { .card-back { margin-top: 6px; min-height: 36px; } }
+.hint { display: block; margin: 0; font-size: .82rem; color: var(--faint); padding: 2px 0; }
+.card .photo { margin: 0; display: grid; gap: 3px; }
+.card .photo img { display: block; width: 100%; height: auto; max-height: 200px; object-fit: cover; border: 2px solid var(--rim); background: var(--box-in); }
+.card .photo figcaption { font-size: .72rem; }
+.card .photo figcaption a { color: var(--faint); }
+/* "Píšou o tom" in a card (src/main.js pressSec): the articles of the press about an event, title and name of the paper */
+.card .press ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.card .press li { font-size: .86rem; line-height: 1.35; }
+.card .press small { color: var(--faint); }
+
+/* ---- modal windows (help, data, forecast, a page in a frame) ----
+   The width and the height count the padding and the border in, so a window is never wider than the screen:
+   --pad stays free on each side of it (8 px on a phone, where every pixel of the text column counts). */
+dialog.modal {
+  box-sizing: border-box; width: 564px; max-width: calc(100% - 2 * var(--pad)); max-height: calc(100% - 8px);
+  padding: 18px 20px; overflow: auto;
+  background: var(--box); border: var(--rim-line); box-shadow: 6px 6px 0 rgba(0, 0, 0, .4);
+  color: var(--text); font-size: .9rem; line-height: 1.5;
+}
+@media (max-width: 640px) { dialog.modal { max-width: calc(100% - 16px); } }
+dialog.modal::backdrop { background: rgb(10 14 24 / .6); }
+dialog.modal :is(h2, h3) { font-family: var(--font-pixel); font-weight: 500; }
+dialog.modal h2 { margin: 0 36px 8px 0; }
+dialog.modal h3 { margin: 14px 0 4px; font-size: 1rem; color: var(--leaf); }
+dialog.modal p { margin: 4px 0; }
+dialog.modal ul { margin: 0; padding-left: 18px; }
+dialog.modal li { margin: 3px 0; }
+dialog.modal .close { position: absolute; inset: 8px 8px auto auto; width: 32px; height: 32px; padding: 0; }
+dialog.modal .muted { margin-top: 14px; color: var(--faint); }
+
+/* the marker of the opened place: a dot with two rings running out of it (sonar), so the place is found at a glance */
+.here-pin { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; box-sizing: border-box; background: #ff9a3c; border: 2px solid #141a28; border-radius: 50%; pointer-events: none; }
+.here-pin::before, .here-pin::after { content: ''; position: absolute; left: -24px; top: -24px; width: 56px; height: 56px; box-sizing: border-box; border: 3px solid #ff9a3c; border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(20, 26, 40, .6), inset 0 0 0 2px rgba(20, 26, 40, .6); animation: hereping 1.8s ease-out infinite; }
+.here-pin::after { animation-delay: .9s; }
+/* the icon of what is there (fx.marker ico), on a stalk above the point: the kind of an event of the police (Zprávy) */
+.here-pin .here-ico { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: block; width: 32px; height: 32px; border: 2px solid #141a28; box-shadow: 3px 3px 0 rgba(0, 0, 0, .35); z-index: 1; }
+.here-pin .here-ico svg { display: block; width: 100%; height: 100%; }
+.here-pin .here-ico::after { content: ''; position: absolute; left: 50%; top: 100%; width: 4px; height: 6px; margin: 2px 0 0 -2px; background: #141a28; }
+@keyframes hereping { 0% { transform: scale(.2); opacity: 1; } 100% { transform: scale(1.6); opacity: 0; } }
+
+/* ---- a short message at the bottom of the screen ----
+   Centred by its own margins between the two edges, not by a shift of half its width: the pixel letters then stand on
+   whole pixels. On a computer it is at most half the screen wide. */
+.toast {
+  position: fixed; z-index: 6; inset: auto 0 calc(var(--safe-b) + 84px); margin: 0 auto;
+  box-sizing: border-box; width: fit-content; max-width: 50%; padding: 8px 14px; font-size: .86rem;
+}
+
+/* ---- the map buttons and the minimap in the bottom corners ---- */
+.controls { position: fixed; z-index: 3; right: var(--from-right); bottom: var(--from-bottom); display: flex; gap: 6px; }
+.controls .pbtn { width: 44px; height: 44px; padding: 0; font-size: 1.2rem; }
+.minimap { position: fixed; z-index: 3; left: var(--from-left); bottom: var(--from-bottom); display: grid; gap: 4px; padding: 4px; }
+.minimap canvas { display: block; width: 220px; cursor: pointer; touch-action: none; }
+.minimap .scale { padding: 0 2px; font-family: var(--font-text); font-weight: 700; font-size: .78rem; font-variant-numeric: tabular-nums; color: var(--faint); }
+.minimap .mini-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+/* the − that hides the minimap: quiet, as the scale beside it; the button with a folded map in the corner brings it back */
+.mini-hide { background: none; border: 0; padding: 0 4px; min-width: 24px; height: 18px; line-height: 1; color: var(--faint); font: 400 1.1rem/1 var(--font-pixel); cursor: pointer; }
+.mini-hide:hover { color: var(--text); }
+.mini-show { display: none; position: fixed; z-index: 3; left: var(--from-left); bottom: var(--from-bottom); width: 36px; height: 36px; padding: 0; place-items: center; }
+.mini-show .ico { width: 18px; height: 18px; }
+.mini-off .minimap { display: none; }
+.mini-off .mini-show { display: inline-grid; }
+.snap-tile { display: none; } /* (only on an upright phone with the top bar folded, see .top-min .snap-tile) */
+/* Snímek (src/snimek.js): the panel above the controls at the bottom right; on a phone a sheet across the bottom */
+.snap {
+  position: fixed; z-index: 12; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 16px + 44px + 10px);
+  width: 340px; max-height: calc(100% - 140px); overflow: auto; box-sizing: border-box; display: grid; gap: 8px; padding: 8px 10px 10px;
+}
+.snap[hidden] { display: none; }
+.snap-head { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-pixel); font-size: 1.25rem; }
+.snap-head b { font-weight: 400; }
+.snap-img { display: block; width: 100%; height: auto; max-height: min(40vh, 320px); object-fit: contain; border: 2px solid var(--rim); box-sizing: border-box; background: var(--sky); } /* (a tall phone shot stays small, the buttons in sight) */
+.snap-meta { margin: 0; font-size: .78rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.snap-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.snap-btns .pbtn { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.snap-btns .pbtn[hidden] { display: none; }
+.snap-btns .ico { width: 14px; height: 14px; }
+.snap-flash { position: fixed; inset: 0; z-index: 40; background: #fff; pointer-events: none; animation: snapFlash .42s ease-out forwards; }
+@keyframes snapFlash { from { opacity: .55; } to { opacity: 0; } }
+@media (max-width: 640px) {
+  .snap { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); max-height: calc(100% - 24px); z-index: 30; }
+  .snap-btns .pbtn { min-height: 44px; }
+}
+
+/* ---- name tags over the map, on a short stalk ---- */
+.pin {
+  position: absolute; transform: translate(-50%, -140%); padding: 2px 6px;
+  background: var(--box); border: 2px solid var(--brick); box-shadow: 2px 2px 0 rgba(0, 0, 0, .4);
+  color: var(--text); font: 1.15rem/1 "VT323", "Courier New", monospace; white-space: nowrap; pointer-events: none;
+}
+.pin::after { content: ""; position: absolute; top: 100%; left: calc(50% - 1px); width: 2px; height: 10px; background: var(--brick); }
+.nolabels .pin, .far .pin { display: none !important; }
+
+/* ---- the start ---- */
+.loading { position: fixed; z-index: 1; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--faint); font-family: var(--font-pixel); pointer-events: none; }
+.loading-logo { display: block; width: 96px; height: 96px; }
+.loading .old-browser { max-width: 26em; margin: 0 16px; text-align: center; font: 400 1rem/1.45 var(--font-text); color: var(--text); pointer-events: auto; }
+/* the start (body.booting: from the script at the top of <body> until src/main.js shows them): the controls wait unseen,
+   in place, so they appear at once in their final shape; only the map and "Načítám Brno…" are seen meanwhile */
+body.booting > :not(#map):not(.loading) { visibility: hidden !important; }
+/* the logo alone over the map (phone, or the folded panel) stands where it stays and needs nothing from main.js: it shows
+   as soon as its pixel font has come (body.brand-ready, set by the script at the top of <body>), not with the controls */
+body.booting.brand-ready > #brand { visibility: visible !important; }
+
+/* ---- a phone ---- */
+@media (max-width: 640px) {
+  .head-tools { gap: 4px; }
+  .head-tools .kontrast-btn { display: none; } /* (a phone has it in the row above the search field, .qrow) */
+  .sq-btn { width: 40px; height: 44px; }
+  h1 { font-size: 1.86rem; }
+  .minimap, .tuck, .mini-show { display: none !important; }
+  .controls > :not(.locate) { display: none; }
+  /* the card: a sheet across the bottom, above the bar of the panes */
+  .card {
+    inset: auto 0 calc(64px + var(--safe-b)); width: auto; max-height: 42%;
+    padding: 6px var(--from-right) 16px var(--from-left); border-width: 2px 0 0;
+    box-shadow: 0 -4px 0 rgba(0, 0, 0, .3); transition: transform .2s ease;
+  }
+  .card .close { top: 10px; right: max(10px, var(--safe-r)); width: 44px; height: 44px; }
+  .card-act { margin: -18px 44px 0 0; } /* level with the bigger × (top 10 px) */
+  .card-act .pbtn { padding-left: 6px; padding-right: 6px; font-size: .7rem; } /* (three actions beside the title: kept narrow, so a one-word title has its room) */
+  .card-act .ride-btn { min-height: 44px; }
+}
+/* the title of the card on its own line and the actions under it, where three actions beside a title leave it no room:
+   with the bigger letters of Kontrastní zobrazení on a phone, and on the narrowest phones */
+@media (max-width: 640px) {
+  :root[data-kontrast] .card-head { flex-wrap: wrap; }
+  :root[data-kontrast] .card-head:has(.card-act:not(:empty)) h2 { flex-basis: 100%; padding-right: 44px; }
+  :root[data-kontrast] .card-act { margin: 0; }
+}
+@media (max-width: 340px) {
+  .card-head { flex-wrap: wrap; }
+  .card-head:has(.card-act:not(:empty)) h2 { flex-basis: 100%; padding-right: 44px; }
+  .card-act { margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } .here-pin::before, .here-pin::after { animation: none; transform: scale(.9); opacity: .8; } .here-pin::after { display: none; } }
+
+/* live data notes, MHD mode, card sections */
+.livenote { margin: 4px 0 0; font-size: .78rem; color: var(--faint); line-height: 1.35; }
+/* Klidná mapa: the look cannot change (src/main.js klidLookUi) */
+.klidnote { margin: 0 0 8px; }
+#lookSummer.klid, #mhL.klid { opacity: .45; }
+/* the Klidná mapa button: the icon of the map as it is (coloured houses / low grey blocks), orange when on (.pbtn[aria-pressed]) */
+.klid-btn { display: grid; place-items: center; padding: 0; }
+.klid-btn .ico { width: 20px; height: 20px; }
+.klid-btn .kb-calm, .klid-btn[aria-pressed="true"] .kb-full { display: none; }
+.klid-btn[aria-pressed="true"] .kb-calm { display: block; }
+.klid-tile { display: none; } /* (only on an upright phone with the top bar folded, see .top-min .klid-tile) */
+.klid-btn.hint { animation: klidHint .5s steps(2) 3; }
+@keyframes klidHint { 50% { transform: scale(1.18); } }
+.livenote a { color: var(--text); }
+.areatoggle { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; font-size: .78rem; color: var(--faint); cursor: pointer; }
+.areatoggle input { margin: 0; accent-color: var(--amber); }
+.mhdmode { margin-top: 6px; grid-template-columns: 1fr 1fr; }
+.mhdmode .pbtn { font-size: .78rem; min-height: 30px; padding: 4px 6px; }
+#cardSections { display: grid; gap: 10px; }
+#cardSections:empty { display: none; }
+.card .sec { display: grid; gap: 6px; border-top: 2px solid var(--rim); padding-top: 8px; }
+.card .sec h3 { margin: 0; font-family: var(--font-text); font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--leaf); }
+.card .sec.proj h3 { color: var(--amber); }
+.card .sec img { display: block; width: 100%; height: auto; max-height: 190px; object-fit: cover; border: 2px solid var(--rim); background: var(--box-in); }
+.card .sec .credit { font-size: .72rem; color: var(--faint); }
+.card .sec .credit a { color: var(--faint); }
+.card .sec dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: .82rem; }
+.card .sec dt { color: var(--faint); }
+.card .sec dd { margin: 0; }
+.card .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .src-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; text-decoration: none; color: var(--text); background: var(--box-in); border: 2px solid var(--leaf); font-family: var(--font-text); font-weight: 700; font-size: .82rem; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+.card .sec.proj .src-btn { border-color: var(--amber); }
+.card .src-btn:hover, .card .src-btn:focus-visible { background: var(--box); }
+.card .src-btn::after { content: "↗"; }
+.livegrid { display: grid; gap: 8px; margin-top: 8px; }
+.livegrid .label { margin: 4px 0 0; }
+.card .links .src-btn { border-color: var(--rim); }
+.card .links .src-btn:first-child { border-color: var(--brick); }
+.itinerary { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; max-height: 240px; overflow: auto; font-size: .84rem; }
+.itinerary li { display: grid; grid-template-columns: 3.4em 1fr; gap: 8px; padding: 3px 6px; }
+.itinerary li.past { color: var(--faint); }
+.itinerary li.next { background: var(--box-in); outline: 1px solid var(--amber); color: var(--text); font-weight: 700; }
+.itinerary .tm { font-variant-numeric: tabular-nums; }
+
+/* location tools in cards */
+.card .sec.locate p { font-size: .8rem; color: var(--faint); }
+.pbtn.small { font-size: .74rem; min-height: 28px; padding: 3px 8px; }
+#corrDownload { justify-self: start; font-size: .78rem; min-height: 30px; }
+
+/* events timeline on the right */
+
+.events { position: fixed; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 62px); right: max(16px, env(safe-area-inset-right, 0px)); width: min(300px, calc(100vw - 32px)); max-height: calc(100% - 62px - 90px); overflow: auto; background: var(--box); border: 2px solid var(--rim); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35); padding: 12px 14px; display: grid; gap: 8px; align-content: start; }
+.evt-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.evt-head h2 { margin: 0; font-family: var(--font-pixel); font-weight: 500; font-size: 1.05rem; }
+.evt-head .close { width: 30px; height: 30px; padding: 0; min-height: 0; }
+.evt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.evt-list button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: 3.2em 1.2em 1fr; gap: 6px; align-items: start; padding: 5px 6px; font-size: .84rem; border-left: 3px solid var(--rim); }
+.evt-list button:hover, .evt-list button:focus-visible { background: var(--box-in); }
+.evt-list .tm { color: var(--faint); font-variant-numeric: tabular-nums; }
+.evt-list .t-closed { border-left-color: #d8342c; }
+.evt-list .t-accident { border-left-color: #f08a3c; }
+.evt-list .t-hazard { border-left-color: var(--amber); }
+.evt-list .t-jam { border-left-color: #e5533a; }
+.evt-list .t-long { border-left-color: #8e141b; }
+.evt-list small { display: block; color: var(--faint); font-size: .74rem; }
+.evt-list .sep { font-family: var(--font-text); font-weight: 700; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--leaf); padding: 8px 0 2px; }
+@media (max-width: 640px) { .events { top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 55%; } }
+/* Aktuálně: a few dated notes, each with a highlight toggle and a link */
+.akt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.akt-list li { display: grid; gap: 5px; padding: 8px 10px; border-left: 3px solid var(--amber); background: var(--box-in); }
+.akt-list li.on { border-left-color: var(--brick); box-shadow: inset 0 0 0 1px var(--brick); }
+.akt-list .when { font-family: var(--font-text); font-weight: 700; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--leaf); }
+.akt-list h3 { margin: 0; font-family: var(--font-pixel); font-weight: 500; font-size: 1rem; line-height: 1.15; }
+.akt-list p { margin: 0; font-size: .84rem; line-height: 1.4; }
+.akt-list .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.akt-list a.pbtn { text-decoration: none; display: inline-grid; place-items: center; }
+.akt-list .pbtn[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit); }
+.akt-tile[data-focus] { border-color: var(--amber); }
+.akt-tile .i { color: var(--brick); }
+.akt-tile[aria-pressed="true"] .i { color: var(--text); }
+.itinerary li { grid-template-columns: 3.4em 1fr auto; }
+.itinerary .exp { font-variant-numeric: tabular-nums; font-weight: 700; }
+.itinerary .exp.late { color: #ff9a6a; }
+.itinerary .exp.early { color: #8fe08a; }
+
+/* stop card: tabs, line filter, departures, timetable */
+.stopbox .tabs, .stopbox .linefilter { display: flex; flex-wrap: wrap; gap: 4px; }
+.stopbox .linefilter { margin-top: 2px; }
+.lbtn, .lbadge { font-family: "VT323", monospace; font-size: 1rem; line-height: 1; color: #fff; padding: 2px 6px; border: 2px solid var(--sky); background: #2f6fb7; }
+.lbtn { cursor: pointer; min-width: 26px; }
+.lbtn[aria-pressed="true"] { outline: 2px solid var(--amber); outline-offset: 1px; }
+.t-tram { background: #c8202a; } .t-trol { background: #2f8f3a; } .t-bus { background: #2f6fb7; }
+.deps { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; max-height: 300px; overflow: auto; font-size: .84rem; }
+.deps li { display: grid; grid-template-columns: 3.2em auto 1fr auto; gap: 6px; align-items: center; padding: 3px 4px; border-bottom: 1px solid var(--box-in); }
+.deps li.empty { display: block; color: var(--faint); }
+.deps li.link { cursor: pointer; }
+.deps li.link:hover { background: var(--box-in); }
+.deps li.sel { background: var(--box-in); box-shadow: inset 3px 0 0 var(--amber); }
+.deps .tm { font-variant-numeric: tabular-nums; }
+.deps .dir { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deps .eta { display: grid; justify-items: end; font-size: .78rem; }
+.deps .eta small { color: var(--faint); }
+.deps .exp { font-weight: 700; } .deps .exp.late { color: #ff9a6a; } .deps .exp.early, .deps .exp.ok { color: #8fe08a; }
+.stopbox .tt h4 { margin: 6px 0 4px; font-family: var(--font-text); font-weight: 700; font-size: .86rem; color: var(--amber); }
+.ttgrid { display: grid; grid-template-columns: 2.2em 1fr; gap: 1px 8px; font-size: .84rem; font-variant-numeric: tabular-nums; max-height: 300px; overflow: auto; }
+.ttgrid .hh { font-weight: 700; text-align: right; color: var(--text); background: var(--box-in); padding: 1px 4px; }
+.ttgrid .mm { white-space: pre-wrap; color: var(--text); padding: 1px 0; }
+.itinerary li.link { cursor: pointer; }
+.itinerary li.link:hover { background: var(--box-in); }
+
+/* current date and time in Brno (the live data refer to it) */
+.clock { position: fixed; z-index: 3; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); background: var(--box); border: 2px solid var(--rim); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35); padding: 3px 8px; font-family: "VT323", monospace; font-size: 1.15rem; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; }
+.clock small { color: var(--faint); font-size: .95rem; margin-right: 6px; }
+/* the sun beside the clock: the map as a clear summer day (pressed), the time and the live data stay real */
+.clock { display: flex; align-items: center; gap: 8px; }
+.look-btn { width: 26px; height: 26px; min-height: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--faint); box-shadow: none; }
+.look-btn .ico { width: 12px; height: 12px; }
+.look-btn[aria-pressed="true"] { color: var(--text); }
+.look-btn .sun { display: none; }
+.look-btn[data-look="summer"] .sun, .look-btn[data-look="noon"] .sun { display: block; }
+.look-btn[data-look="summer"] .clk, .look-btn[data-look="noon"] .clk { display: none; }
+@media (max-width: 640px) {
+  .clock { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); right: auto; left: 10px; font-size: 1rem; }
+}
+
+/* air quality station card */
+.airvals { border-collapse: collapse; margin: 4px 0 6px; font-size: 14px; }
+.airvals td { padding: 2px 8px 2px 0; }
+.airvals td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.airvals .lvl { display: inline-block; padding: 0 6px; color: var(--sky); border: 1px solid var(--sky); }
+.airchart { width: 100%; height: auto; display: block; background: rgba(255,255,255,.04); margin: 2px 0 8px; }
+.airchart .ln { fill: none; stroke: var(--text); stroke-width: 1.6; }
+.airchart .lim { stroke: var(--amber); stroke-width: 1; stroke-dasharray: 4 3; }
+.airchart .ax { fill: #c9cfbf; font-size: 10px; }
+.airchart .zero { stroke: #5fb3e6; stroke-width: 1; stroke-dasharray: 4 3; }
+.airchart .frost { fill: #5fb3e6; opacity: .16; }
+.airchart .tick { stroke: #c9cfbf; stroke-width: 1; }
+.airchart .pt { fill: var(--text); }
+.airchart .pt.cold { fill: #5fb3e6; }
+.sec.air .row2 { margin-bottom: 4px; }
+
+/* data overview window */
+dialog.modal.data { width: 1004px; }
+.datatools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0 8px; }
+.datatools input { flex: 1 1 260px; font: inherit; padding: 6px 8px; background: #121827; color: var(--text); border: 2px solid #3a4560; }
+.datatools select { font: inherit; background: #121827; color: var(--text); border: 2px solid #3a4560; padding: 4px; }
+.datatable-wrap { overflow-x: auto; }
+.datatable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.datatable th { text-align: left; font-weight: 500; color: var(--leaf); border-bottom: 2px solid #3a4560; padding: 4px 6px; position: sticky; top: 0; background: var(--box); }
+.datatable td { vertical-align: top; padding: 6px; border-bottom: 1px solid #2c3550; }
+.datatable td.num, .datatable th.num { text-align: right; white-space: nowrap; }
+.datatable .dname { font-weight: 600; }
+.datatable .dwhat, .datatable .dnote { color: var(--faint); font-size: 13px; }
+.datatable .dlinks a { margin-right: 8px; font-size: 13px; }
+.datatable mark { background: var(--amber); color: var(--sky); }
+.m-live, .m-regular, .m-snapshot { display: inline-block; padding: 0 5px; font-weight: 500; color: var(--sky); white-space: nowrap; }
+.m-live { background: #5cc062; } .m-regular { background: var(--amber); } .m-snapshot { background: #9aa3ad; }
+
+/* webcam preview */
+.sec.cam .campic { width: 100%; height: auto; display: block; image-rendering: auto; border: 2px solid var(--sky); background: #121827; min-height: 120px; }
+.sec.cam .camframe { width: 100%; aspect-ratio: 16 / 9; border: 2px solid var(--sky); background: #121827; }
+
+.admin-box { position: relative; border: 2px dashed #f08a3c; padding: 14px 8px 6px; margin: 8px 0 4px; }
+.admin-box::before { content: 'LADĚNÍ'; position: absolute; top: -9px; left: 8px; background: var(--box); color: #f08a3c; font: 500 12px/16px var(--font-pixel, monospace); padding: 0 4px; letter-spacing: .05em; }
+.admin-box .btns { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+/* [ADMIN] facade corrections in a building's card */
+.fac-form { display: grid; gap: 6px; margin: 6px 0 8px; }
+.fac-row { display: flex; align-items: center; gap: 6px; font-size: .85rem; }
+.fac-row > span { flex: 0 0 110px; color: var(--faint, #9aa3b5); }
+.fac-row input[type=text], .fac-row input[type=number], .fac-row select { flex: 1; min-width: 0; font: inherit; background: #121827; color: var(--text); border: 2px solid #3a4560; padding: 3px 5px; }
+.fac-row input[type=number] { flex: 0 0 80px; }
+.fac-row input[type=color] { width: 44px; height: 28px; padding: 0; border: 2px solid #3a4560; background: #121827; }
+.sec.cam .meteoframe { aspect-ratio: 4 / 5; }
+/* a frame of another site before the click (src/main.js frameGate) */
+.sec.cam .framegate { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; padding: 12px; text-align: center; }
+.sec.cam .framego { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; color: var(--text); background: var(--box-in); border: 2px solid var(--leaf); font-family: var(--font-pixel); font-size: 1rem; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); cursor: pointer; }
+.sec.cam .framego:hover, .sec.cam .framego:focus-visible { background: var(--box); }
+.sec.cam .framenote { margin: 0; font-size: .78rem; color: var(--faint); }
+.vmolegend { list-style: none; padding: 0; margin: 4px 0 8px; }
+.vmolegend li { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.vmoswatch { display: inline-block; width: 34px; height: 0; }
+
+/* weather forecast panel */
+.weathernow { display: block; width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; text-decoration: underline dotted; }
+.weathernow:hover { color: var(--leaf, #93c96a); }
+dialog.modal.data#fcDlg { width: 904px; }
+/* Seznam míst and Pro média: a page in a frame, as tall as the screen allows */
+dialog.modal.frame-dlg { width: 1144px; height: calc(100% - 14px); padding-bottom: 12px; overflow: hidden; }
+dialog.modal.frame-dlg[open] { display: flex; flex-direction: column; }
+.frame-dlg iframe { flex: 1; width: 100%; min-height: 0; border: 2px solid var(--rim); background: var(--sky); margin-top: 4px; }
+.fc-sec { margin: 12px 0; }
+.fc-sec h3 { margin: 6px 0 4px; }
+.fc-scroll { overflow-x: auto; padding-bottom: 4px; }
+.fc-chart { display: block; height: 120px; }
+.fc-chart .ax { fill: var(--text); font-size: 11px; }
+.fc-cells { display: flex; }
+.fc-hour { flex: 0 0 26px; display: flex; flex-direction: column; align-items: center; gap: 1px; background: none; border: 0; border-top: 1px solid #2c3550; color: var(--text); font-size: 11px; line-height: 1.2; padding: 3px 0; cursor: pointer; }
+.fc-hour:hover { background: rgba(243, 200, 104, .15); }
+.fc-hour .h { font-size: 10px; color: var(--faint); min-height: 12px; white-space: nowrap; }
+.fc-hour .i { font-size: 13px; }
+.fc-hour .p { color: #5fb3e6; font-size: 10px; }
+.fc-hour .w { font-size: 9px; color: var(--faint); }
+.fc-days { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fc-days td { padding: 2px 4px; border-bottom: 1px solid #2c3550; white-space: nowrap; }
+.fc-days td.num { text-align: right; }
+.fc-days td.p, .fc-days td.pp { color: #5fb3e6; }
+.fc-bar { width: 40%; }
+.fc-bar .track { position: relative; height: 10px; background: #1a2133; }
+.fc-bar .spread { position: absolute; top: 0; bottom: 0; background: rgba(243, 200, 104, .25); }
+.fc-bar .range { position: absolute; top: 2px; bottom: 2px; background: linear-gradient(90deg, #5fb3e6, var(--amber)); }
+.fc-season, .fc-pollen { border-collapse: collapse; font-size: 14px; width: 100%; }
+.fc-season td, .fc-season th, .fc-pollen td, .fc-pollen th { padding: 3px 6px; border-bottom: 1px solid #2c3550; text-align: left; font-weight: 400; }
+.fc-season .warm { color: #f08a3c; }
+.fc-season .cold { color: #5fb3e6; }
+.fc-season .dry { color: #e0c070; }
+.fc-season .wet { color: #7fc8f0; }
+.fc-pollen .lv.l1 { color: var(--leaf); }
+.fc-pollen .lv.l2 { color: var(--amber); }
+.fc-pollen .lv.l3 { color: #ff5050; }
+.fc-chmi summary { cursor: pointer; margin: 4px 0; }
+.fc-alert { border: 2px solid #f08a3c; background: rgba(240, 138, 60, .12); padding: 6px 8px; margin: 6px 0; }
+.fc-alert.sev-severe, .fc-alert.sev-extreme { border-color: #d8342c; background: rgba(216, 52, 44, .15); }
+.alertbar { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; transform: translateX(-50%); z-index: 30; background: #f08a3c; color: var(--sky); border: 2px solid var(--sky); padding: 4px 12px; cursor: pointer; max-width: calc(100% - 32px); font-size: 14px; }
+.fcpill { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 30; background: var(--box); color: var(--text); border: 2px solid #5fb3e6; padding: 4px 8px; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.fcpill[hidden], .alertbar[hidden] { display: none; }
+/* top right: the "Události" tile and the forecast tile side by side (on phones each is placed on its own above the bottom bar) */
+.hud-top { position: fixed; z-index: 3; top: calc(env(safe-area-inset-top, 0px) + 16px); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 8px; align-items: stretch; }
+.fc-tile, .evt-tile { display: flex; align-items: center; gap: 6px; font-size: .85rem; padding: 4px 10px; }
+.evt-tile .i { font-size: 1.1rem; line-height: 1; color: var(--amber); font-family: var(--font-text); }
+.evt-tile[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit); }
+.evt-tile[aria-pressed="true"] .i { color: var(--text); }
+/* Brno teď: a link to the overview of the city (prehled.html), the first tile of the row; a red dot pulses by opacity */
+/* (as high as the other tiles of the row, 36 px: the column of the theme tiles under the row is placed for that height;
+   a link is content-box, unlike the buttons beside it, so its border would add 4 px) */
+.now-tile { order: -1; position: relative; box-sizing: border-box; display: grid; place-items: center; width: 36px; padding: 0; line-height: 1; font-family: var(--font-text); font-weight: 700; text-decoration: none; color: var(--text); }
+.now-tile .l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.now-tile .i { display: block; width: 20px; height: 20px; color: var(--amber); }
+.now-tile .i .px-ico { display: block; width: 20px !important; height: 20px !important; }
+.now-tile .nd { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; background: #ff5a45; box-shadow: 0 0 0 1px var(--sky); animation: now-dot 1.6s ease-in-out infinite; }
+@keyframes now-dot { 0%, 100% { opacity: 1; } 50% { opacity: .2; } }
+.now-tile:hover, .now-tile:focus-visible { border-color: var(--brick-lit); }
+@media (prefers-reduced-motion: reduce) { .now-tile .nd { animation: none; } }
+/* the day switch: a tile like the others, only while the map is dark; pressed = held in daylight */
+.day-tile .i { color: var(--amber); font-size: 1rem; }
+.day-tile[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit); }
+.day-tile[aria-pressed="true"] .i { color: var(--text); }
+.evt-tile i { font-style: normal; font-family: var(--font-text); font-weight: 700; font-size: .7rem; line-height: 1.3; background: var(--brick-on); color: var(--text); padding: 0 5px; border: 1px solid var(--brick-lit); }
+.evt-tile i:empty { display: none; }
+.fc-tile .i { font-size: 1.1rem; line-height: 1; }
+.fc-tile .t { font-family: "VT323", monospace; font-size: 1.15rem; line-height: 1; }
+.fc-tile .t:empty { display: none; }
+@media (max-width: 640px) { .fc-tile { top: auto; bottom: calc(122px + env(safe-area-inset-bottom, 0px)); right: 10px; } }
+/* live weather on: the manual buttons are dimmed, none is shown as chosen */
+#weather.is-live .pbtn { opacity: .55; }
+#weather.is-live .pbtn:hover { opacity: 1; }
+
+/* GO TO BRNO, monuments, closures, themed routes, "what is on" */
+.sec.gotobrno h3 { color: #5fb3e6; }
+.sec.gotobrno dd { white-space: pre-line; } /* opening hours and prices: one item a line, as in the source */
+.mon-tag { display: inline-block; background: #e6c15a; color: var(--sky); font-weight: 600; font-size: .8rem; padding: 1px 6px; border: 1px solid var(--sky); }
+.outage-note { display: block; width: 100%; text-align: left; margin: 4px 0; background: rgba(240, 138, 60, .15); border: 2px solid #f08a3c; color: var(--text); font: inherit; font-size: .9rem; padding: 4px 6px; cursor: pointer; }
+.routesel { display: flex; gap: 6px; align-items: center; margin: 6px 0; font-size: .9rem; }
+.routesel select { flex: 1; min-width: 0; font: inherit; background: #121827; color: var(--text); border: 2px solid #3a4560; padding: 3px; }
+.routestops { margin: 4px 0; padding-left: 0; list-style: none; max-height: 260px; overflow: auto; }
+.routestops button { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--text); font: inherit; font-size: .9rem; padding: 3px 4px; cursor: pointer; }
+.routestops button:hover, .routestops button[aria-current] { background: rgba(229, 138, 201, .2); }
+.routenav { align-items: center; }
+.routepos { padding: 0 8px; color: var(--faint); }
+.evt-tabs { margin: 0 0 4px; }
+.evt-filter { display: grid; gap: 6px; }
+.evt-filter select { font: inherit; background: #121827; color: var(--text); border: 2px solid #3a4560; padding: 3px; }
+/* air quality: advice and explanations */
+.air-advice { border-left: 4px solid #50ccaa; padding: 4px 8px; background: rgba(255, 255, 255, .04); margin: 6px 0; }
+.air-explain summary { cursor: pointer; margin: 6px 0 2px; color: var(--leaf, #93c96a); }
+.air-explain p { margin: 4px 0; font-size: .92rem; }
+
+/* memorial tree photo in the card */
+.sec img.campic { width: 100%; height: auto; display: block; max-height: 320px; object-fit: cover; border: 2px solid var(--sky); background: #121827; }
+
+/* times and numbers: readable font (the pixel fonts draw a slashed zero that reads like 9 or 6) */
+.evt-list .tm, .clock, .fc-days td.num, .fc-hour .t, .fc-hour .h, .fc-tile .t, .fc-chart .ax, .airvals td.num, .itinerary .tm { font-family: var(--font-text); }
+.evt-list .evt-city { grid-template-columns: 1.2em 1fr; }
+.evt-list small.when { color: var(--amber, #f3c868); }
+.evt-standing summary { margin: 6px 0 4px; }
+
+/* legend */
+.legend { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 5px; font-size: .84rem; }
+.legend li { display: block; line-height: 1.4; }
+/* (the icons sit in the text: a line with several of them, or several coloured words, wraps like ordinary text) */
+.legend li .lg { display: inline-grid; vertical-align: middle; margin-right: 6px; }
+.legend li .lg.tram-plan { align-self: auto; }
+.lg { flex: 0 0 auto; display: inline-grid; place-items: center; width: 22px; height: 14px; border: 2px solid var(--sky); font-size: .7rem; font-weight: 700; color: var(--sky); }
+/* the names of places: a dot on the place (src/fx.js drawNames), here with a dark ring as on the map */
+.lg.tag-g, .lg.tag-b, .lg.tag-y, .lg.tag-gold { width: 10px; height: 10px; border-radius: 50%; border-color: var(--sky); }
+.lg.tag-g { background: var(--leaf); } .lg.tag-b { background: #5fb3e6; } .lg.tag-y { background: var(--amber); } .lg.tag-gold { background: var(--leaf); border-color: var(--amber); }
+.lg.hatch { background: repeating-linear-gradient(45deg, var(--amber) 0 1px, transparent 1px 5px), repeating-linear-gradient(-45deg, var(--amber) 0 1px, #4a3828 1px 5px); border-color: var(--amber); }
+.lg.vmo { height: 0; border: 0; border-top: 4px dashed var(--amber); }
+.lg.mon { background: rgba(255, 196, 40, .2); border-color: #ffc428; }
+.lg.tram { background: linear-gradient(90deg, #c8202a 0 33%, #2f8f3a 33% 66%, #efe6cf 66%); }
+.lg.stop { background: #2f6fb7; color: #fff; width: 16px; height: 16px; }
+/* (a legend pin is not a map pin: no absolute position, no stalk, and not hidden with the map's pins) */
+.lg.pin { display: inline-grid !important; position: static; transform: none; width: 18px; height: 18px; padding: 0; border: 2px solid var(--sky); box-shadow: none; font-family: inherit; font-size: .7rem; line-height: 1; color: var(--sky); pointer-events: auto; }
+.lg.pin::after { content: none; }
+.lg.jam { background: repeating-linear-gradient(90deg, #d8342c 0 5px, var(--sky) 5px 6px, #f08a3c 6px 11px, var(--sky) 11px 12px); }
+.lg.clean { background: #12a0ff; box-shadow: inset 0 0 0 1px var(--sky); }
+.lg.closed { background: repeating-linear-gradient(90deg, #d8342c 0 4px, #fff 4px 8px); }
+.lg.air { background: var(--text); border-radius: 0; box-shadow: inset 0 -3px 0 #50ccaa; }
+.lg.cam { background: var(--text); box-shadow: inset -5px 0 0 #2f6fb7; }
+.lg.meteo { background: #5fb3e6; }
+.lg.stolper { border: 0; background: none; }
+.kam-list { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 2px; }
+.kam-list button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; padding: 4px 6px; font-size: .86rem; border-left: 3px solid var(--rim); }
+.kam-list button:hover, .kam-list button:focus-visible { background: var(--box-in); }
+.kam-list button.on { border-left-color: #d9a93a; background: var(--box-in); font-weight: 700; }
+.kam-about { color: var(--faint); font-size: .8rem; }
+.kam-person { margin: 4px 0 8px; line-height: 1.45; }
+.lg.tree { background: radial-gradient(circle at 50% 40%, #5e9a3a 0 5px, #3f7a2c 5px 7px, transparent 7px); border: 0; }
+.lg.clu { background: var(--text); width: 24px; }
+
+/* ---- tabs and panes: one click to the most used things, two to the rest, technical things in "Více" ---- */
+.vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.tab {
+  position: relative; display: grid; justify-items: center; gap: 1px; padding: 5px 2px 4px; min-height: 46px; cursor: pointer;
+  background: var(--box-in); border: 2px solid var(--rim); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); color: var(--text);
+  font-family: var(--font-text); font-weight: 700; font-size: .7rem; line-height: 1.1;
+}
+.tab .ti { font-size: 1.05rem; line-height: 1; color: var(--amber); font-family: var(--font-text); }
+.tab:hover, .tab:focus-visible { background: var(--box); }
+.tab:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(0, 0, 0, .35); }
+.tab[aria-expanded="true"], .tab[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit); }
+.tab[aria-expanded="true"] .ti, .tab[aria-pressed="true"] .ti { color: var(--text); }
+.tab i { position: absolute; top: -7px; right: -5px; font-style: normal; font-family: var(--font-text); font-weight: 700; font-size: .66rem; background: var(--brick-on); color: var(--text); padding: 0 4px; border: 1px solid var(--brick-lit); }
+.tab i:empty { display: none; }
+.pane { display: grid; gap: 12px; align-content: start; border-top: 2px solid var(--rim); padding-top: 10px; }
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pane-head h2 { margin: 0; font-family: var(--font-pixel); font-weight: 500; font-size: 1rem; }
+.roles { margin: 0 0 10px; }
+.roles-h { margin: 0 0 4px; font-family: var(--font-text); font-weight: 700; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+.roles-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.role-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px 5px; font-size: .74rem; line-height: 1.15; text-align: center; }
+.role-btn .px-ico { width: 24px !important; height: 24px !important; color: #d9a93a; }
+.role-btn[aria-pressed="true"] .px-ico { color: var(--text); }
+#paroCity { margin: 6px 0 2px; }
+.pane-close { width: 30px; height: 30px; min-height: 30px; padding: 0; }
+.pane .realtime { margin-top: 0; }
+.pane > div > .realtime { margin-bottom: 6px; }
+.layers .wide { grid-column: 1 / -1; }
+.morelist { display: grid; gap: 6px; }
+.morelist .label { margin: 8px 0 0; } .morelist .label:first-child { margin-top: 0; }
+.mrow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; text-decoration: none; padding: 5px 10px 5px 5px; min-height: 44px; }
+.mrow > i { flex: none; width: 32px; height: 32px; display: grid; place-items: center; background: var(--brick); border: 2px solid var(--brick-lit); color: #fff; }
+.mrow > i .ico { width: 18px; height: 18px; display: block; }
+.mrow b { display: block; font-family: var(--font-pixel); font-weight: 400; font-size: 1.05rem; line-height: 1.1; }
+.mrow small { display: block; font-family: var(--font-text); font-size: .76rem; line-height: 1.3; color: var(--faint); }
+.mrow.fb > i { background: #1877f2; border-color: #4b97f7; }
+.mrow.fb { border-color: #2f5fa8; }
+.share-top { display: none; }
+@media (min-width: 641px) {
+  .panel { gap: 10px; }
+}
+@media (max-width: 640px) {
+  .share-top { display: inline-grid; }
+  .panel { gap: 8px; padding: 8px 10px; overflow: visible; max-height: none; }
+  .search input { padding: 10px; font-size: 1rem; }
+  .results { max-height: 45vh; overflow: auto; background: var(--box); }
+  /* the tabs: a bar at the bottom of the screen */
+  .tabs {
+    position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; gap: 4px;
+    padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+    border-top: var(--rim-line); background: var(--box);
+  }
+  .tab { min-height: 50px; font-size: .72rem; }
+  /* a pane: a sheet sliding up above the bar */
+  .pane {
+    position: fixed; z-index: 5; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    max-height: 62%; overflow: auto; background: var(--box); border-top: 2px solid var(--brick);
+    box-shadow: 0 -4px 0 rgba(0, 0, 0, .3);
+    padding: 10px max(14px, env(safe-area-inset-right, 0px)) 14px max(14px, env(safe-area-inset-left, 0px));
+  }
+  .pane-close { width: 44px; height: 44px; }
+  .pane .pbtn { min-height: 44px; }
+  .layers label { min-height: 36px; }
+  .pane-open .fc-tile, .pane-open .evt-tile, .pane-open .clock { display: none; }
+}
+@media (max-width: 640px) {
+  /* "Události" slides up like the other panes */
+  .events { left: 0; right: 0; width: auto; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-height: 62%; border-width: 2px 0 0; border-top-color: var(--brick); box-shadow: 0 -4px 0 rgba(0, 0, 0, .3); }
+}
+/* places and stories, how it was made: two fold-outs under the tabs */
+.quick { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.quick details[open] { flex-basis: 100%; }
+.quick details[open] ~ details:not([open]) { order: -1; }
+/* where the browser knows ::details-content, the two titles stay side by side and only the open one's text drops in
+   under them (no jumping between one row and two); older browsers keep the flex fallback above */
+@supports selector(::details-content) {
+  .quick { display: grid; grid-template-columns: auto auto 1fr; }
+  .quick details { display: contents; }
+  .quick details > summary { grid-row: 1; }
+  .quick details::details-content { grid-column: 1 / -1; }
+  .quick details:not([open])::details-content { display: none; }
+}
+.quick .places { max-height: 40vh; overflow: auto; }
+.quick .qd-body { max-height: 40vh; overflow: auto; }
+@media (max-width: 640px) { .quick .places, .quick .qd-body { max-height: 32vh; } }
+
+/* the short weather overview under the weather tile */
+.fc-tile[aria-expanded="true"] { background: var(--brick-on); border-color: var(--brick-lit); }
+.fc-pop {
+  position: fixed; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 62px); right: max(16px, env(safe-area-inset-right, 0px));
+  width: min(300px, calc(100vw - 32px)); max-height: calc(100% - 62px - 90px); overflow: auto;
+  background: var(--box); border: 2px solid var(--rim); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35); padding: 12px 14px; display: grid; gap: 10px; align-content: start;
+}
+.fc-pop .evt-head h2 { font-size: 1rem; }
+#fcPopBody { display: grid; gap: 10px; }
+.fcs-now { display: grid; grid-template-columns: auto auto 1fr; gap: 10px; align-items: center; }
+.fcs-now .i { font-size: 2rem; line-height: 1; }
+.fcs-now .t { font-family: var(--font-text); font-weight: 700; font-size: 1.6rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fcs-now .x { display: grid; gap: 1px; min-width: 0; }
+.fcs-now .x b { font-weight: 700; font-size: .92rem; }
+.fcs-now .x small { color: var(--faint); font-size: .76rem; }
+.fcs-hours { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.fcs-h { display: grid; justify-items: center; gap: 1px; padding: 4px 0; cursor: pointer; background: var(--box-in); border: 1px solid var(--rim); font-family: var(--font-text); }
+.fcs-h:hover, .fcs-h:focus-visible { background: var(--box); border-color: var(--amber); }
+.fcs-h .h { font-size: .7rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.fcs-h .i { font-size: 1.05rem; line-height: 1.2; }
+.fcs-h .t { font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fcs-h .p { font-size: .68rem; color: #5fb3e6; font-variant-numeric: tabular-nums; }
+.fcs-days { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.fcs-days td { padding: 3px 4px; border-top: 1px solid var(--rim); }
+.fcs-days .d { color: var(--faint); white-space: nowrap; }
+.fcs-days .i { text-align: center; }
+.fcs-days .num { text-align: right; font-family: var(--font-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fcs-days .p { color: #5fb3e6; }
+.fcs-more { width: 100%; }
+.fc-alert.short { display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+@media (max-width: 640px) {
+  .fc-pop { top: auto; left: 0; right: 0; width: auto; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-height: 62%;
+    border-width: 2px 0 0; border-top-color: var(--brick); box-shadow: 0 -4px 0 rgba(0, 0, 0, .3); box-sizing: border-box; }
+  .fcs-h { min-height: 64px; }
+}
+
+/* my position */
+.locate .ico { width: 22px; height: 22px; }
+.locate[aria-pressed="true"] { color: #4299ff; }
+.locate.follow { background: #2f80ed; border-color: #6aa8ff; color: #fff; }
+/* the map opened from afar (src/main.js locateHint): the icon and the frame breathe in blue and a square ring spreads
+   out of the button, softly, until a click or zooming in; with reduced motion only the blue, standing still */
+.locate.hint { position: relative; isolation: isolate; }
+/* the blue breathes as a layer under the icon that only fades in and out (opacity): the compositor runs it, the main thread
+   does not repaint the button 60 times a second (an animated colour or background would, Lighthouse "non-composited") */
+.locate.hint::before { content: ''; position: absolute; inset: -2px; z-index: -1; background: #2a5a9e; border: 2px solid #6aa8ff; pointer-events: none; opacity: 0; animation: locate-glow 2.4s ease-in-out infinite; }
+.locate.hint::after { content: ''; position: absolute; inset: -2px; border: 3px solid #6aa8ff; pointer-events: none; animation: locate-ring 2.4s ease-out infinite; }
+@keyframes locate-glow { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes locate-ring { 0%, 30% { opacity: 0; transform: scale(1); } 40% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0; transform: scale(1.7); } }
+@media (prefers-reduced-motion: reduce) {
+  .locate.hint { color: #fff; }
+  .locate.hint::before { animation: none; opacity: 1; }
+  .locate.hint::after { animation: none; opacity: .5; inset: -6px; }
+}
+.ride-btn { min-width: 9em; }
+
+/* ---- sheets on phones: a handle to drag them bigger or smaller; bars that fold into a corner ---- */
+.grip, .bar-min, .bar-max, .brand { display: none; }
+/* the logo as a button (shown alone over the map): no box of its own, a click opens the panel with "Jak to vzniklo" */
+button.brand { background: none; border: 0; padding: 0; margin: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button.brand:hover { opacity: 1 !important; }
+@media (max-width: 640px) {
+  .grip { display: block; position: relative; height: 22px; margin: -8px -14px -4px; touch-action: none; cursor: ns-resize; }
+  .grip::before { content: ""; position: absolute; left: 50%; top: 7px; width: 60px; height: 6px; margin-left: -30px; background: var(--faint); opacity: .9; }
+  .card > .grip { margin: -6px 0 -2px; }
+  .card .close, .events .evt-head .close, .fc-pop .evt-head .close { z-index: 1; }
+  .card, .events, .fc-pop, .pane { overscroll-behavior: contain; }
+
+  /* the top bar: the fold button in the header; folded = one button in the top left corner */
+  .bar-min { display: inline-grid; }
+  .fold-ico { width: 18px !important; height: 18px !important; color: var(--faint); }
+  .bar-min:hover .fold-ico, .bar-min:focus-visible .fold-ico { color: var(--text); }
+  .top-min .panel { padding: 0; border: 0; background: none; box-shadow: none; width: auto; }
+  .top-min .panel > .head, .top-min .panel > .search, .top-min .panel > .quick, .top-min .panel > .spoj { display: none; }
+  .top-min #topMax { display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; font-size: 1.1rem; }
+  /* folded: the name sits in the top right, level with the ☰ button; text only, a one-pixel outline keeps it readable over the map */
+  .top-min .brand {
+    display: block; white-space: nowrap; position: fixed; z-index: 3; user-select: none;
+    top: calc(env(safe-area-inset-top, 0px) + 16px); right: max(14px, env(safe-area-inset-right, 0px)); height: 44px;
+    font-family: var(--font-pixel); font-weight: 500; font-size: min(9.6vw, 2.4rem); line-height: 44px; letter-spacing: .01em; color: var(--text); opacity: .92;
+    text-shadow: 1px 0 0 var(--sky), -1px 0 0 var(--sky), 0 1px 0 var(--sky), 0 -1px 0 var(--sky), 3px 3px 0 rgba(0, 0, 0, .55);
+  }
+  .top-min .brand span { color: var(--brick); }
+  .top-min .brand .tld { font-size: .68em; color: var(--faint); font-weight: 400; letter-spacing: .02em; vertical-align: baseline; } /* .cz sits on the same line as 2000 */
+  body:has(#rideBox:not([hidden])) .brand, body:has(.alertbar:not([hidden])) .brand { display: none; } /* the ride box or a weather warning takes that corner */
+  .now-tile { display: none; }
+  .top-min .now-tile {
+    display: grid; place-items: center; align-content: center; gap: 1px; position: fixed; z-index: 3; width: 44px; height: 44px; padding: 0;
+    top: calc(env(safe-area-inset-top, 0px) + 16px + 44px + 8px); left: max(16px, env(safe-area-inset-left, 0px));
+  }
+  .top-min .now-tile .nd { top: 3px; right: 3px; }
+  body.top-min:has(#rideBox:not([hidden])) .now-tile, body.top-min:has(.alertbar:not([hidden])) .now-tile { display: none; }
+  /* Snímek: the next square of that column (src/snimek.js), hidden in the same cases */
+  .top-min .snap-tile {
+    display: grid; place-items: center; position: fixed; z-index: 3; width: 44px; height: 44px; padding: 0;
+    top: calc(env(safe-area-inset-top, 0px) + 16px + 2 * (44px + 8px)); left: max(16px, env(safe-area-inset-left, 0px));
+  }
+  .top-min .snap-tile .ico { width: 18px; height: 18px; }
+  body.top-min:has(#rideBox:not([hidden])) .snap-tile, body.top-min:has(.alertbar:not([hidden])) .snap-tile { display: none; }
+  /* Klidná mapa: the square under Snímek; the button of the bottom right row is not on a phone */
+  #klidBtn { display: none; }
+  .top-min .klid-tile {
+    display: grid; place-items: center; position: fixed; z-index: 3; width: 44px; height: 44px; padding: 0;
+    top: calc(env(safe-area-inset-top, 0px) + 16px + 3 * (44px + 8px)); left: max(16px, env(safe-area-inset-left, 0px));
+  }
+  body.top-min:has(#rideBox:not([hidden])) .klid-tile, body.top-min:has(.alertbar:not([hidden])) .klid-tile { display: none; }
+  /* the bottom bar: a sixth narrow button folds it; folded = one button in the bottom right corner */
+  .tabs { grid-template-columns: repeat(4, 1fr) 44px; }
+  #tabsMin { display: grid; padding: 0; align-content: center; }
+  .tabs-min .tabs { left: auto; right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding: 0; background: none; border: 0; grid-template-columns: auto; }
+  .tabs-min .tabs > .tab { display: none; }
+  /* folded: the menu button alone in the corner, as big as the ☰ button of the folded top bar */
+  .tabs-min #tabsMax { display: grid; width: 44px; height: 44px; min-height: 44px; padding: 0; align-content: center; }
+  body:has(#card:not([hidden])) #tabsMax, body:has(#events:not([hidden])) #tabsMax, body:has(#aktual:not([hidden])) #tabsMax, body:has(#fcPop:not([hidden])) #tabsMax { display: none; }
+  .tabs-min .card, .tabs-min .events, .tabs-min .fc-pop { bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* forecast and clock: small, side by side at the bottom left; my position at the bottom right */
+  .clock { left: 10px; right: auto; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); width: 72px; box-sizing: border-box; text-align: center; padding: 2px 4px; font-size: .95rem; opacity: .85; }
+  .clock small { display: none; }
+  .fc-tile { top: auto; right: auto; left: 88px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); min-height: 0; padding: 1px 8px; font-size: .78rem; opacity: .85; }
+  .fc-tile .l { display: none; }
+  .fc-tile .i { font-size: .95rem; }
+  .fc-tile .t { font-size: 1rem; }
+  /* my position: the right end of the bottom row, the same height as the tiles */
+  .controls { right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .controls .pbtn { width: 44px; height: 36px; min-height: 36px; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+  /* bottom bar folded: the row is gone, my position stands alone above the menu button in the corner, the same square */
+  .tabs-min .controls { bottom: calc(10px + 44px + 8px + env(safe-area-inset-bottom, 0px)); }
+  .tabs-min .controls .pbtn { height: 44px; min-height: 44px; }
+}
+
+/* ---- sheets: a fixed head and a scrolling body (resizing does not squeeze or stretch the content) ---- */
+.sheet-body { display: grid; gap: inherit; align-content: start; min-height: 0; }
+/* the scrolling bodies scroll only up and down (overflow: hidden auto below); pictures and frames with a border count
+   the border into their 100 % width, so nothing is a few pixels wider than the body (that showed as a scrollbar) */
+.sheet-body img, .sheet-body iframe, .sheet-body video, .sheet-body canvas, .sheet-body figure, .sheet-body .camframe { box-sizing: border-box; max-width: 100%; }
+.card, .events, .fc-pop { display: flex; flex-direction: column; overflow: hidden; }
+.card > *, .events > *, .fc-pop > * { flex: none; }
+.card > .sheet-body, .events > .sheet-body, .fc-pop > .sheet-body { flex: 1 1 auto; overflow: hidden auto; overscroll-behavior: contain; }
+.card > .close { position: absolute; }
+.events > .sheet-body { gap: 8px; }
+.card > .sheet-body { gap: 8px; }
+@media (max-width: 640px) {
+  .pane { display: flex; flex-direction: column; overflow: hidden; }
+  .pane > * { flex: none; }
+  .pane > .sheet-body { flex: 1 1 auto; overflow: hidden auto; overscroll-behavior: contain; gap: 12px; padding-bottom: 4px; }
+}
+@media (max-width: 640px) {
+  /* an open sheet: the position button does not show through it */
+  .pane-open .controls, body:has(#card:not([hidden])) .controls, body:has(#events:not([hidden])) .controls, body:has(#fcPop:not([hidden])) .controls { display: none; }
+}
+
+/* request stops in a vehicle's timetable */
+.itinerary .rq { font-family: var(--font-text); font-weight: 700; font-size: .78rem; color: var(--amber); white-space: nowrap; }
+.itinerary .rq.off { color: var(--faint); font-weight: 400; }
+
+/* riding along: a small box at the top right */
+.ride-box {
+  position: fixed; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 62px); right: max(16px, env(safe-area-inset-right, 0px));
+  width: min(240px, calc(100vw - 32px)); background: var(--box); border: 2px solid var(--amber); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35);
+  padding: 8px 10px; display: grid; gap: 4px; font-size: .84rem;
+}
+.rb-title { all: unset; cursor: pointer; font-family: var(--font-text); font-weight: 700; font-size: .95rem; line-height: 1.15; }
+.rb-title:hover, .rb-title:focus-visible { text-decoration: underline; }
+.rb-delay { font-size: .74rem; color: #5cc062; }
+.rb-delay.d1 { color: var(--amber); } .rb-delay.d2 { color: #f08a3c; } .rb-delay.d3 { color: #d8342c; }
+.rb-stops { list-style: none; margin: 2px 0; padding: 0; display: grid; gap: 1px; }
+.rb-stops li { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px; padding: 2px 0; }
+.rb-stops li:first-child { font-weight: 700; }
+.rb-stops li.link { cursor: pointer; }
+.rb-stops li.link:hover .st { text-decoration: underline; }
+.rb-stops .tm { font-variant-numeric: tabular-nums; color: var(--faint); }
+.rb-stops .rq { color: var(--amber); font-weight: 700; }
+.rb-btns { display: flex; gap: 6px; justify-content: flex-end; }
+body:has(#fcPop:not([hidden])) .ride-box, body:has(#events:not([hidden])) .ride-box { display: none; }
+@media (max-width: 640px) {
+  .ride-box { top: calc(env(safe-area-inset-top, 0px) + 150px); right: 10px; width: 210px; font-size: .8rem; opacity: .97; }
+  .top-min .ride-box { top: calc(env(safe-area-inset-top, 0px) + 16px); } /* level with the ☰ button */
+  /* as low as it can be: the stops close under each other, the delay and the buttons tight */
+  .ride-box { box-sizing: border-box; width: 200px; padding: 5px 8px; gap: 1px 6px; grid-template-columns: 1fr auto; }
+  .ride-box .rb-title, .ride-box .rb-stops { grid-column: 1 / -1; }
+  .ride-box .rb-delay { grid-row: 3; grid-column: 1; align-self: center; } /* the delay beside Vystoupit, not on a line of its own */
+  .ride-box .rb-btns { grid-row: 3; grid-column: 2; }
+  .ride-box:has(#rbBack:not([hidden])) .rb-delay { display: none; } /* (K vozu takes its place for a while) */
+  .ride-box:has(#rbBack:not([hidden])) .rb-btns { grid-column: 1 / -1; }
+  .ride-box .rb-stops { margin: 1px 0; gap: 0; }
+  .ride-box .rb-stops li { padding: 1px 0; line-height: 1.2; }
+  .ride-box .rb-btns .pbtn { min-height: 30px; }
+  /* riding with a theme highlighted (src/main.js placeTop): the chip stands left of the ride box, narrow and in lines */
+  .focus-chip.side { align-items: flex-start; gap: 6px; padding: 4px 3px 4px 8px; line-height: 1.2; }
+  .focus-chip.side .ico { display: none; }
+  .focus-chip.side .l { min-width: 0; overflow-wrap: anywhere; align-self: center; }
+}
+@media (max-width: 640px) {
+  /* with a card open the ride box shrinks to the next stop and stays under the card */
+  .ride-box { z-index: 3; }
+  body:has(#card:not([hidden])) .rb-stops li:nth-child(n+2) { display: none; }
+  body:has(#card:not([hidden])) .rb-delay { display: none; }
+  .pane-open .ride-box { display: none; }
+}
+
+/* ---- the bar of a picked journey (src/spojeni.js): on a computer at the top right, left of the tile column with a
+   little room; on a phone at the bottom above the theme tiles. Three looks of one height (84 px), the squares that
+   switch them beside it (computer: a column as tall as the bar, 3 x 26 + 2 x 3 px) or above it (phone: a row) ---- */
+.sl-wrap { position: fixed; z-index: 3; top: calc(env(safe-area-inset-top, 0px) + 62px); right: calc(var(--qcol, 68px) + 8px); display: flex; gap: 5px; align-items: flex-start; }
+/* (the overviews at the right, Aktuálně, Události, Předpověď, open over it, z-index 4, and it is there again when they
+   close; only the ride box, in the same place, takes over while riding) */
+body:has(#rideBox:not([hidden])) .sl-wrap:not(.with-ride) { display: none; }
+@media (min-width: 641px) and (min-height: 501px) { body:has(.sl-wrap.with-ride:not([hidden])) .ride-box { top: calc(env(safe-area-inset-top, 0px) + 62px + 84px + 8px); } }
+@media (min-width: 641px) and (max-height: 500px) { body:has(#rideBox:not([hidden])) .sl-wrap { display: none; } }
+.sl-bar { position: relative; box-sizing: border-box; width: 360px; height: 84px; overflow: hidden; cursor: pointer; background: var(--box); border: 2px solid var(--tone, var(--rim)); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35); color: var(--text); font-size: .84rem; line-height: 1.3; }
+.sl-bar:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+.sl-bar.tone-calm { --tone: #6f9be0; } .sl-bar.tone-go { --tone: var(--amber); } .sl-bar.tone-ride { --tone: var(--leaf); }
+.sl-bar.tone-miss { --tone: #d8342c; } .sl-bar.tone-done { --tone: var(--rim); }
+.sl-st { font-family: var(--font-pixel); font-size: 1.2rem; line-height: 1.05; color: var(--tone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-bar.tone-done .sl-st, .sl-bar.tone-done .sl-big b { color: var(--faint); }
+.sl-bar.tone-miss .sl-st { color: #ff6a5f; }
+.sl-sub, .sl-rt { color: var(--faint); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-rt b { color: var(--text); }
+.sl-bar .lbadge { font-size: .85rem; padding: 0 4px; border-width: 1px; }
+.sl-dl { margin-left: 6px; font-weight: 700; }
+.sl-dl.d0 { color: #5cc062; } .sl-dl.d1 { color: var(--amber); } .sl-dl.d2 { color: #f08a3c; } .sl-dl.d3 { color: #d8342c; } /* (the scale of delayColor, src/vehicles.js) */
+.sl-bar .sl-x { position: absolute; z-index: 1; top: 5px; right: 5px; width: 30px; height: 30px; min-height: 0; padding: 0; font-size: 1rem; line-height: 1; } /* × in its square, in the same place in every look */
+.sl-again { font-family: var(--font-text); font-weight: 700; font-size: .9rem; line-height: 1.2; background: var(--box-in); border: 2px solid var(--rim); color: var(--text); padding: 0 7px; cursor: pointer; white-space: nowrap; }
+.sl-again:hover, .sl-again:focus-visible { border-color: var(--amber); }
+.sl-again.yes { background: #2c5a2a; border-color: var(--leaf); }
+/* a finger in a rush: the answers of the bar were 21 px high. 30 px with a mouse, 38 px on a touch screen (the bar is
+   84 px: the row of the look pásek takes the height, the strip and the times keep theirs) */
+.sl-again { min-height: 30px; }
+@media (pointer: coarse) { .sl-again { min-height: 38px; padding: 0 12px; font-size: 1rem; } .sl-row { min-height: 38px; } .sl-pasek { gap: 1px; padding-top: 3px; padding-bottom: 3px; } }
+.sl-times .sl-mid { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; padding: 0 6px; } /* ("0:02 směr Ořešín": the way of the ride, cut when the name is long) */ /* (the answer that confirms: Jedu, Nastoupil jsem) */
+.sl-ask { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.sl-row .sl-ask { flex: none; flex-wrap: nowrap; } .sl-row .sl-st { flex: 1 1 auto; min-width: 0; } /* (the look pásek: the question and its two answers in one row) */ /* (gone, nobody said they got on: Nastoupit / Další spoj) */
+/* lišta: the state, the lines and the way, what next */
+.sl-lista { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; gap: 2px; padding: 6px 42px 6px 10px; }
+.sl-lista .sl-again { margin-left: 6px; vertical-align: 2px; font-size: .8rem; }
+/* tabule: the big number first */
+.sl-tabule { display: grid; grid-template-columns: 70px minmax(0, 1fr); }
+.sl-big { background: var(--box-in); border-right: 2px solid var(--tone); display: grid; align-content: center; justify-items: center; padding: 2px; text-align: center; }
+.sl-big small { font-family: var(--font-text); font-weight: 700; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); line-height: 1; }
+.sl-big b { font-family: var(--font-pixel); font-weight: 400; font-size: 2.6rem; line-height: .9; color: var(--tone); }
+.sl-big b.w { font-size: 1.7rem; line-height: 1.15; }
+.sl-big i { font-style: normal; font-family: var(--font-text); font-weight: 700; font-size: .82rem; color: var(--faint); line-height: 1; }
+.sl-txt { padding: 6px 40px 6px 9px; display: grid; gap: 2px; align-content: center; min-width: 0; }
+.sl-txt .sl-sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sl-txt .sl-again { justify-self: start; margin-top: 2px; }
+.sl-txt:has(> .sl-again, > .sl-ask) .sl-sub { -webkit-line-clamp: 1; } /* (with buttons under it the second line is one line long: the bar is 84 px high) */
+/* pásek: the whole journey as a line, "now" moving on it */
+.sl-pasek { display: grid; align-content: center; gap: 3px; padding: 5px 4px 6px 10px; }
+.sl-row { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 30px; padding-right: 36px; }
+.sl-row .sl-st { flex: 1 1 auto; min-width: 0; }
+.sl-eta { font-family: var(--font-text); font-weight: 700; font-size: .95rem; color: var(--faint); white-space: nowrap; }
+.sl-strip { position: relative; height: 22px; margin: 0 16px 0 8px; display: flex; align-items: center; }
+/* the walking figure over the dots of a walk (7 x 10 pixels, as drawn in the map by src/spojeni.js) */
+.sl-strip .walker { position: absolute; left: 50%; bottom: 3px; width: 7px; height: 10px; transform: translateX(-50%); filter: drop-shadow(1px 0 0 var(--sky)) drop-shadow(-1px 0 0 var(--sky)) drop-shadow(0 -1px 0 var(--sky));
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 10' shape-rendering='crispEdges'%3E%3Cpath fill='%23eef1e6' d='M3 0h2v2H3zM2 2h3v1H2zM1 3h1v1H1zM3 3h3v1H3zM0 4h1v1H0zM3 4h2v1H3zM6 4h1v1H6zM3 5h2v1H3zM2 6h1v1H2zM5 6h1v1H5zM2 7h1v1H2zM6 7h1v1H6zM1 8h1v1H1zM6 8h1v1H6zM1 9h1v1H1z'/%3E%3C/svg%3E") 0 0 / 100% 100%; }
+.sl-strip .seg { position: relative; min-width: 4px; height: 3px; }
+.sl-strip .seg.walk { background: repeating-linear-gradient(90deg, #dfe4ec 0 3px, transparent 3px 7px); }
+.sl-strip .seg.ride { height: 7px; background: #2f6fb7; }
+.sl-strip .seg.t-tram { background: #c8202a; } .sl-strip .seg.t-trol { background: #2f8f3a; }
+.sl-strip .seg .lbadge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: .72rem; line-height: 1.1; padding: 0 3px; border: 1px solid #fff; }
+.sl-strip .tick { position: absolute; top: 50%; width: 2px; height: 7px; background: rgba(22, 29, 43, .85); transform: translate(-50%, -50%); }
+.sl-strip .tick.req { height: 13px; background: var(--amber); box-shadow: 0 0 0 1px var(--sky); } /* (na znamení) */
+.sl-strip .seg .lbadge { z-index: 1; }
+.sl-strip .stop { position: absolute; top: 50%; width: 6px; height: 6px; background: #fff; border: 1px solid var(--sky); transform: translate(-50%, -50%); }
+.sl-strip .end { position: absolute; top: 50%; width: 12px; height: 12px; border: 2px solid #fff; transform: translate(-50%, -50%); font-family: var(--font-text); font-weight: 700; font-size: 10px; line-height: 12px; text-align: center; color: #fff; }
+.sl-strip .end.a { left: 0; background: #4f9b39; } .sl-strip .end.b { left: 100%; background: #c4612f; }
+.sl-strip .now { position: absolute; top: -5px; width: 0; height: 0; border: 6px solid transparent; border-top: 8px solid var(--amber); transform: translateX(-50%); }
+.sl-strip .now::after { content: ""; position: absolute; left: -1px; top: -1px; width: 2px; height: 18px; background: var(--amber); }
+.sl-strip.miss .seg.ride { opacity: .5; }
+.sl-times { display: flex; justify-content: space-between; margin: 0 4px 0 2px; font-family: var(--font-text); font-weight: 700; font-size: .82rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+/* the squares: a little picture of each look; the lit one is on */
+.sl-looks { display: flex; flex-direction: column; gap: 3px; }
+.sl-look { all: unset; box-sizing: content-box; position: relative; cursor: pointer; width: 22px; height: 22px; background: var(--box); border: 2px solid var(--rim); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+.sl-look:hover { border-color: var(--faint); }
+.sl-look[aria-pressed="true"] { border-color: var(--amber); background: var(--box-in); }
+.sl-look:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+.sl-look i { position: absolute; inset: 0; }
+.sl-look i::before, .sl-look i::after { content: ""; position: absolute; background: var(--faint); }
+.sl-look[aria-pressed="true"] i::before, .sl-look[aria-pressed="true"] i::after { background: var(--amber); }
+.l-pasek i::before { left: 3px; right: 3px; top: 10px; height: 2px; }
+.l-pasek i::after { left: 7px; top: 4px; bottom: 4px; width: 2px; }
+.l-tabule i::before { left: 3px; top: 3px; bottom: 3px; width: 7px; }
+.l-tabule i::after { left: 12px; right: 3px; top: 6px; height: 2px; box-shadow: 0 5px 0 var(--faint); }
+.l-tabule[aria-pressed="true"] i::after { box-shadow: 0 5px 0 var(--amber); }
+.l-lista i::before { left: 3px; right: 3px; top: 6px; height: 2px; }
+.l-lista i::after { left: 3px; right: 8px; top: 12px; height: 2px; }
+@media (max-width: 640px) {
+  .sl-wrap { top: auto; left: 10px; right: 10px; bottom: calc(180px + env(safe-area-inset-bottom, 0px)); flex-direction: column; align-items: stretch; gap: 6px; }
+  .sl-bar { width: auto; }
+  .sl-looks { order: -1; flex-direction: row; justify-content: center; gap: 14px; }
+  .sl-look { width: 16px; height: 16px; }
+  .sl-look i { transform: scale(.73); }
+  .sl-look::after { content: ""; position: absolute; inset: -9px -7px; } /* (a bigger place to tap than the little square) */
+  .pane-open .sl-wrap, body:has(#card:not([hidden])) .sl-wrap { display: none; }
+  .sl-bar .sl-x { width: 34px; height: 34px; top: 4px; right: 4px; }
+  .sl-row { padding-right: 40px; } .sl-lista { padding-right: 46px; } .sl-txt { padding-right: 44px; }
+  .tabs-min .sl-wrap { bottom: calc(10px + 30px + 8px + env(safe-area-inset-bottom, 0px)); right: calc(max(10px, env(safe-area-inset-right, 0px)) + 44px + 8px); }
+  /* (narrower there, beside the two corner buttons, above the small clock, weather and traffic boxes) */
+  .tabs-min .sl-st { font-size: 1.05rem; }
+  .tabs-min .sl-big { width: auto; } .tabs-min .sl-tabule { grid-template-columns: 58px minmax(0, 1fr); }
+  .tabs-min .sl-big b { font-size: 2.2rem; }
+}
+@media (min-width: 641px) and (max-height: 500px) {
+  .sl-wrap { top: calc(env(safe-area-inset-top, 0px) + 56px); }
+}
+@media (min-width: 641px) and (min-height: 501px) {
+  .card:has(.sp-card) {
+    box-sizing: border-box; width: 391px; right: calc(var(--qcol) + 8px);
+    top: calc(env(safe-area-inset-top, 0px) + 62px); bottom: auto;
+    max-height: calc(100% - 62px - 70px - 36px - 8px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ---- "Jak to vzniklo" alone (the logo over the map, src/main.js): a box where the panel would be, the panel stays
+   folded; the text is src/about.html, the same as in the panel ---- */
+.about-box {
+  position: fixed; z-index: 5; box-sizing: border-box; top: calc(env(safe-area-inset-top, 0px) + 62px); left: max(16px, env(safe-area-inset-left, 0px));
+  width: min(356px, calc(100vw - 32px)); max-height: calc(100% - 62px - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; background: var(--box); border: 2px solid var(--rim); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35); padding: 12px 14px;
+}
+.about-box .ab-head { flex: none; display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+.about-box h2 { flex: 1 1 auto; margin: 0; font-family: var(--font-pixel); font-weight: 500; font-size: 1.2rem; line-height: 1.1; }
+.about-box .close { flex: none; width: 32px; height: 32px; min-height: 0; padding: 0; margin: -4px -6px 0 0; }
+.about-box .ab-body { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; }
+@media (max-width: 640px) {
+  .about-box { top: calc(env(safe-area-inset-top, 0px) + 16px + 44px + 8px); left: 10px; right: 10px; width: auto; max-height: calc(100% - 68px - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  .about-box .close { width: 44px; height: 44px; }
+}
+
+/* pixel icons: whole pixels, no smoothing */
+.px-ico { width: 24px !important; height: 24px !important; image-rendering: pixelated; }
+.tab .ti .px-ico { width: 20px !important; height: 20px !important; display: inline-block; vertical-align: middle; }
+#topMax, #tabsMax, .locate { color: var(--text); }
+.clock b.hm { font-weight: 400; }
+/* phones: clock and weather tile side by side at the bottom, same size and aligned */
+@media (max-width: 640px) {
+  /* one row above the bottom bar: Aktuálně, Události, the weather and, at the right end, my position. The time is left
+     to the phone itself (its status bar shows it); the look of the map is in the Vzhled tab and in the chip above the map */
+  :root { --hudw: calc((100vw - 20px - 50px - 12px - 76px) / 2); } /* (the weather tile is narrower: an icon and the temperature) */
+  .clock { display: none; }
+  .hud-top { display: contents; }
+  .fc-tile, .evt-tile {
+    position: fixed; z-index: 3; width: var(--hudw); height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 4px; margin: 0;
+    display: flex; align-items: center; justify-content: center; gap: 5px; overflow: hidden; white-space: nowrap;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)); top: auto; right: auto;
+    border-width: 2px; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); opacity: .92; font-size: .8rem;
+  }
+  .akt-tile { left: 10px; }
+  #evtToggle { left: calc(16px + var(--hudw)); }
+  .fc-tile { left: calc(22px + 2 * var(--hudw)); width: 76px; }
+  .evt-tile .l { font-size: .72rem; color: var(--faint); }
+  .evt-tile[aria-pressed="true"] .l { color: var(--text); }
+  .fc-tile .l { display: none; }
+}
+@media (max-width: 640px) {
+  /* folded bottom bar: everything at the bottom goes with it (the theme tiles, Aktuálně, Události, Ukázat den, the clock,
+     the forecast); my position stays where it was, the same size, and the menu button in the corner brings it all back */
+  .tabs-min #tabsMin, .tabs-min .qbar, .tabs-min .qt-menu, .tabs-min .evt-tile, .tabs-min .clock, .tabs-min .fc-tile { display: none; }
+}
+
+/* ---- the author: a signature, not an advert ---- */
+/* the portrait floats on the left and the text flows around it and on below it: no empty space under it */
+.author-block { display: flow-root; margin: 6px 0 4px; }
+/* the photo with the name and, in italics, who made the map under it; the text flows on the right */
+.author-block .author-id { float: left; width: 120px; margin: 2px 12px 2px 0; display: grid; gap: 2px; text-align: center; text-decoration: none; color: var(--text); }
+.author-block .avatar { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; margin-bottom: 4px; }
+.author-block .author-name { font-family: var(--font-pixel); font-weight: 500; font-size: 1.05rem; line-height: 1.1; }
+.author-block .author-role { font-size: .72rem; line-height: 1.3; color: var(--faint); }
+.author-block .author-id:hover .avatar, .author-block .author-id:focus-visible .avatar { filter: brightness(1.12); }
+.author-block .author-id:hover .author-name, .author-block .author-id:focus-visible .author-name { text-decoration: underline; }
+@media (max-width: 640px) { .author-block .author-id { width: 104px; margin-right: 10px; } }
+.author-block p { margin: 0 !important; color: var(--text) !important; font-size: .8rem; line-height: 1.45; }
+.about .fine { font-size: .7rem; }
+.sig { margin: 0; font-size: 70%; color: var(--faint); line-height: 1.3; }
+.sig a { color: var(--faint); }
+.sig a:hover, .sig a:focus-visible { color: var(--text); }
+.sig-more { display: none; }
+/* what the map is, in two sentences, under the signature (so nobody has to click to find out) */
+.intro { margin: 6px 0 0; font-size: 76%; line-height: 1.35; color: var(--text); opacity: .85; text-wrap: pretty; }
+.intro-more { display: none; }
+.byline { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; font-size: .86rem; color: var(--faint); }
+.byline .avatar { width: 32px; height: 32px; image-rendering: pixelated; flex: none; }
+.byline a { color: var(--text); }
+/* the Vrstvy pane: fold-out sections, each with a count of what is on in it; "Akce" alone above them */
+#pane-layers .sheet-body { gap: 8px; }
+/* Hledání ve Vrstvách (src/layerfind.js) and v Objevuj (src/explorefind.js): the field with its × (in Vrstvy with
+   "Jen zapnuté" beside it, under Pro koho).
+   While it filters (.finding) the row stays at the top of the scrolled pane, what does not answer is out (.lf-out),
+   the sections keep their headings, and with words typed (.lf-words) the rows go one under another with their
+   explanations (two lines, a tap for the rest; whole when only a few rows are left: .lf-few). */
+.lfind { display: flex; gap: 6px; align-items: stretch; }
+.lfind-box { position: relative; flex: 1 1 auto; min-width: 0; }
+.lfind-box input { width: 100%; height: 100%; box-sizing: border-box; margin: 0; padding: 5px 32px 5px 10px; min-height: 32px; background: var(--box-in); color: var(--text); border: 2px solid var(--rim); border-radius: 0; font: inherit; font-size: .9rem; -webkit-appearance: none; appearance: none; }
+.lfind-box input::placeholder { color: var(--faint); }
+.lfind-box input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+.lfind-box input:focus-visible { outline: 2px solid var(--leaf); outline-offset: 0; }
+.lfind-x { all: unset; position: absolute; top: 2px; right: 2px; bottom: 2px; width: 30px; box-sizing: border-box; display: grid; place-items: center; cursor: pointer; color: var(--text); background: var(--brick-on); font-family: var(--font-pixel); font-size: 1.05rem; line-height: 1; }
+.lfind-x[hidden] { display: none; }
+.lfind-x:hover { filter: brightness(1.15); }
+.lfind-x:focus-visible { outline: 2px solid var(--leaf); outline-offset: 1px; }
+.lfind > .pbtn { flex: 0 0 auto; min-height: 32px; white-space: nowrap; }
+.lfind-info { margin: 0; font-size: .78rem; line-height: 1.35; color: var(--faint); }
+.lfind-info[hidden] { display: none; }
+.pane.finding .lfind { position: sticky; top: 0; z-index: 2; margin: -4px 0; padding: 4px 0; background: var(--box); box-shadow: 0 -8px 0 var(--box); } /* (the shadow: the gap above it, so the rows scrolled away do not show through) */
+.pane .lf-out { display: none !important; }
+#pane-layers.lf-noroles #roles { display: none; } /* (a phone, while the field is typed into) */
+#pane-layers.finding .lh { display: none; }
+#pane-layers.finding .lsec[open] { padding-bottom: 8px; }
+#pane-layers.finding .lsec[open] > summary { margin-bottom: 8px; }
+#pane-layers.finding .lsec > summary + * { margin-top: 0; }
+#pane-layers.finding .lsec > :last-child:not(summary) { margin-bottom: 0; }
+#pane-layers.lf-words .lsec > .layers:not(#cleanRange):not(#zasahRange) { grid-template-columns: 1fr; }
+/* (the room above and under the text is a border, not padding: a clamped box shows the next line in its padding) */
+.lhint.lf-hint { cursor: pointer; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; padding-top: 0; padding-bottom: 0; border-top: 4px solid var(--box-in); border-bottom: 4px solid var(--box-in); }
+.pane.lf-few .lhint.lf-hint, .lhint.lf-hint.open { display: block; }
+.pane.lf-few .lhint.lf-hint { cursor: default; }
+/* Objevuj: the line under a row found; what is no row of a list is put away */
+.places .lf-hint { margin: 0 0 6px; }
+#pane-explore.finding .exsec > .livenote, #pane-explore.finding .exsec > .routesel { display: none; }
+@media (max-width: 640px) {
+  .lfind-box input { min-height: 44px; font-size: 1rem; padding-right: 46px; } /* (16 px: an iPhone does not zoom the page into the field) */
+  .lfind-x { width: 42px; }
+  .lfind > .pbtn { min-height: 44px; }
+  /* the keyboard is out: the sheet stands on it, as high as the screen left above it allows */
+  .pane.lf-kb { bottom: var(--lf-kb, 0px); max-height: calc(var(--lf-vh, 100vh) - 12px) !important; height: auto !important; }
+}
+.lsec { border: 2px solid var(--rim); min-width: 0; }
+.realtime.lone { min-width: 0; }
+.lsec > summary { display: flex; align-items: center; gap: 8px; padding: 7px 10px; list-style: none; }
+.lsec > summary::-webkit-details-marker { display: none; }
+.lsec > summary::before { content: '▶'; font-size: .6em; color: var(--amber); }
+.lsec[open] > summary::before { content: '▼'; }
+.lsec > summary > span { flex: 1 1 auto; }
+.lsec > summary > .cnt { font-family: var(--font-text); font-size: .72rem; letter-spacing: 0; text-transform: none; color: var(--text); border: 1px solid var(--rim); padding: 1px 6px; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lsec > summary > .cnt.off { color: var(--faint); }
+.lsec > summary > .cnt:empty { display: none; }
+.lsec > summary:hover, .lsec > summary:focus-visible { background: var(--box-in); outline: none; }
+.lsec[open] > summary { border-bottom: 2px solid var(--rim); }
+.lsec > :not(summary) { margin-left: 8px; margin-right: 8px; }
+.lsec > .layers { gap: 6px 8px; }
+.lsec > summary + * { margin-top: 8px; }
+.lsec > :last-child:not(summary) { margin-bottom: 8px; }
+.lsec > .livenote { margin-top: 6px; }
+.lsec > .legend { margin-top: 8px; }
+.realtime.lone { margin-top: 0; font-size: .88rem; color: var(--text); min-height: 24px; }
+.realtime.lone input { width: 16px; height: 16px; }
+@media (max-width: 640px) { .realtime.lone { min-height: 36px; } }
+.lupa-grp { border: 2px solid var(--rim); padding: 8px 10px; display: grid; gap: 6px; }
+.lupa-label { display: flex; align-items: center; gap: 6px; margin: 0; }
+.lupa-ico { width: 16px !important; height: 16px !important; color: var(--amber); }
+.lupa-grp .livenote { margin: 0; }
+.lg.pin.lupa { box-shadow: 0 0 0 1px var(--amber); font-size: .6rem; }
+@media (max-width: 640px) {
+  .sig-panel { display: none; }
+  .sig-more { display: block; }
+  .intro-panel { display: none; }
+  .intro-more { display: block; }
+}
+.card .sec.lupa h3 { color: var(--amber); }
+.lupa-more { text-decoration: none; border-color: var(--amber); }
+
+/* building and development: swatches in the layer list */
+.layers.one { grid-template-columns: 1fr; }
+.lsec > .layers.sub { margin: 6px 0 0 0; gap: 2px 8px; padding: 4px 8px 6px; border-left: 3px solid var(--rim); background: rgba(255, 255, 255, .04); }
+.layers.sub .sub-h { grid-column: 1 / -1; margin: 0 0 2px; font-family: var(--font-text); font-weight: 700; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+.layers.sub label { font-size: .8rem; color: var(--faint); }
+.layers.sub[hidden] { display: none; }
+/* Datové mapy: the switch for the whole section (one map at a time), set apart above the groups of maps */
+.lsec > .dm-master { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; margin-bottom: 8px; background: var(--box-in); border: 1px solid var(--rim); }
+.dm-master-t { font-size: .76rem; color: var(--faint); line-height: 1.25; }
+.dm-master .dm-off { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border: 2px solid var(--rim); font-size: .84rem; cursor: pointer; min-height: 24px; }
+.dm-master .dm-off input { accent-color: var(--leaf); width: 14px; height: 14px; margin: 0; }
+.dm-master .dm-off:has(input:checked) { background: var(--brick-on); border-color: var(--brick-lit); color: var(--text); }
+.dm-master .dm-off:not(:has(input:checked)):hover { border-color: var(--brick-lit); }
+.dm-master .dm-off:has(input:focus-visible) { outline: 2px solid var(--leaf); outline-offset: 2px; }
+.layers label > span { display: inline-flex; align-items: center; gap: 6px; }
+/* the beacon beside a layer in Vrstvy (src/main.js, after focusButton): to the right edge of its line */
+.layers .lay-focus { margin-left: auto; flex: 0 0 auto; width: 26px; min-height: 22px; padding: 0; }
+.layers .lay-focus .px-ico { width: 14px !important; height: 14px !important; }
+@media (pointer: coarse) { .layers .lay-focus { width: 36px; min-height: 32px; } }
+.lg.plan-city { background: repeating-linear-gradient(45deg, rgba(243,200,104,.55) 0 1.5px, rgba(243,200,104,.2) 1.5px 5px); border: 3px dashed var(--amber); box-sizing: border-box; }
+.lg.plan-priv { background: repeating-linear-gradient(45deg, rgba(143,196,240,.55) 0 1.5px, rgba(143,196,240,.2) 1.5px 5px); border: 3px dashed #8fc4f0; box-sizing: border-box; }
+.lg2 { flex: 0 0 auto; display: inline-flex; flex-direction: column; gap: 4px; width: 22px; }
+.lg.tram-plan { background: radial-gradient(circle, #f6f0ff 0 1.5px, transparent 2px) 0 50% / 7px 7px repeat-x, #a066e0; height: 6px !important; align-self: center; border-width: 1px; }
+
+.lg.crowd { width: 43px; height: 22px; padding: 0; border: 0; background: transparent; } /* the calendar leaf of the map and three pedestrians, no backdrop */
+
+/* project pictures: one big, small thumbnails to switch */
+.card .gallery { display: grid; gap: 4px; }
+.card .gallery > img { display: block; width: 100%; height: 170px; object-fit: cover; border: 2px solid var(--rim); background: var(--box-in); }
+.card .gallery .thumbs { display: flex; gap: 4px; }
+.card .gallery .thumbs button { padding: 0; border: 2px solid var(--rim); background: none; cursor: pointer; line-height: 0; }
+.card .gallery .thumbs button.on { border-color: var(--amber); }
+.card .gallery .thumbs img { width: 52px; height: 36px; object-fit: cover; display: block; }
+
+.card img.zoomable { cursor: zoom-in; }
+/* the big view of the project pictures */
+.lightbox { padding: 0; border: 2px solid var(--rim); background: var(--sky); color: var(--text); max-width: 96vw; max-height: 94vh; box-shadow: 6px 6px 0 rgba(0, 0, 0, .45); }
+.lightbox::backdrop { background: rgba(10, 14, 24, .82); }
+.lightbox figure { margin: 0; display: grid; gap: 6px; padding: 10px 52px 10px; }
+.lightbox img { display: block; max-width: calc(96vw - 110px); max-height: calc(94vh - 70px); width: auto; height: auto; margin: auto; image-rendering: auto; background: var(--box-in); }
+.lightbox figcaption { font-size: .8rem; color: var(--faint); text-align: center; }
+.lightbox .close { position: absolute; top: 6px; right: 6px; width: 36px; height: 36px; padding: 0; }
+.lightbox .lb-prev, .lightbox .lb-next { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 56px; padding: 0; font-size: 1.4rem; }
+.lightbox .lb-prev { left: 6px; } .lightbox .lb-next { right: 6px; }
+@media (max-width: 640px) { .lightbox figure { padding: 44px 6px 8px; } .lightbox img { max-width: calc(96vw - 16px); } .lightbox .lb-prev, .lightbox .lb-next { top: auto; bottom: 8px; transform: none; } }
+
+/* [ADMIN] the label of the local version with the tuning tools */
+.admin-badge { position: fixed; z-index: 7; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 50%; transform: translateX(-50%); pointer-events: auto; cursor: help;
+  background: #f08a3c; color: var(--sky); border: 2px solid var(--sky); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); padding: 2px 10px; font: 500 12px/16px var(--font-pixel); letter-spacing: .06em; }
+@media (max-width: 640px) { .admin-badge { top: auto; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); font-size: 10px; } }
+/* the clock: one font for the date and the time (readable digits), the time bold and bright, the date muted */
+.clock, .clock small, .clock b.hm, .clock .s, .clock .y { font-family: var(--font-text); font-variant-numeric: tabular-nums; }
+.clock { font-size: .95rem; line-height: 1.2; }
+.clock small { font-size: .82rem; font-weight: 400; color: var(--faint); }
+.clock b.hm { font-weight: 700; color: var(--text); }
+.clock .s { font-weight: 400; color: var(--faint); }
+@media (max-width: 640px) { .clock small { font-size: .74rem; } .clock { font-size: .9rem; } }
+@media (max-width: 640px) { .admin-badge { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 2px); left: auto; right: 6px; transform: none; font-size: 10px; padding: 0 6px; } }
+/* text only for screen readers and search engines (the subtitle in the h1) */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* datové mapy (src/datamap.js): the legend of the map shown and the value under the cursor */
+.dm-classes { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.dm-class { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: .84rem; min-height: 24px; }
+.dm-class:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+.dm-class.dim { opacity: .4; }
+.dm-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.dm-class { flex: 1 1 auto; min-width: 0; }
+.dm-only { all: unset; cursor: pointer; flex: 0 0 auto; font-family: var(--font-text); font-weight: 700; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: 2px 4px; }
+.dm-only:hover, .dm-only:focus-visible { color: var(--amber); outline: none; }
+.dm-hint { color: var(--amber); }
+.dm-sw { flex: 0 0 auto; width: 18px; height: 14px; border: 2px solid var(--sky); box-sizing: border-box; }
+.dm-class[aria-pressed="true"] .dm-sw { outline: 2px solid var(--amber); }
+#dmLegend .livenote { margin-top: 6px; }
+#dmLegend .dm-alt { margin-top: 8px; } /* another view of the same data (Srovnat s kriminalitou) */
+/* a map of two data (Strach a kriminalita): the legend as a table, the survey in rows, the police in columns */
+.dm-intro { margin: 6px 0 4px; font-size: .84rem; }
+.dm-matrix { display: grid; grid-template-columns: auto 1fr 1fr; gap: 3px; margin-top: 6px; font-size: .78rem; }
+.dm-mh { color: var(--faint); align-self: end; line-height: 1.2; }
+.dm-mh.row { align-self: center; text-align: right; padding-right: 4px; }
+.dm-mcell { all: unset; box-sizing: border-box; cursor: pointer; min-height: 32px; background: var(--c); border: 2px solid var(--sky); }
+.dm-mcell[aria-pressed="true"] { outline: 2px solid var(--amber); outline-offset: -4px; }
+.dm-mcell.dim { opacity: .35; }
+.dm-mcell:focus-visible { outline: 2px solid var(--leaf); }
+.dm-mcell.none { cursor: default; background: rgba(110, 116, 128, .35); }
+.dm-tip { position: fixed; z-index: 5; pointer-events: none; background: var(--box); border: 2px solid var(--amber); color: var(--text); padding: 3px 8px; font-size: .8rem; white-space: nowrap; box-shadow: 3px 3px 0 rgba(0, 0, 0, .35); }
+
+/* the card of a quarter: shares of its houses in the bands of the datové mapy */
+.bars { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 3px; font-size: .8rem; }
+.bars li { display: grid; grid-template-columns: 14px minmax(0, 1fr) 70px 38px; align-items: center; gap: 6px; }
+.bars .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bars .bar { height: 10px; background: var(--box-in); border: 1px solid var(--rim); }
+.bars .fill { display: block; height: 100%; background: var(--amber); }
+.bars .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--faint); }
+.sec.area h3 + .bars { margin-top: 2px; }
+.crime-row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin: 8px 0 2px; font-size: .85rem; }
+.crime-row .dm-sw { align-self: center; }
+.crime-spark { display: block; width: 100%; height: 26px; background: var(--box-in); border: 1px solid var(--rim); }
+.crime-years { display: flex; justify-content: space-between; font-size: .7rem; color: var(--faint); }
+.crime-sub { margin: 2px 0 6px; font-size: .8rem; color: var(--faint); }
+.po-cases { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 4px; font-size: .82rem; }
+.po-cases li { display: grid; grid-template-columns: 14px 112px minmax(0, 1fr); column-gap: 6px; align-items: baseline; }
+.po-cases .dm-sw { width: 12px; height: 12px; align-self: center; }
+.po-cases .po-when { font-variant-numeric: tabular-nums; color: var(--faint); }
+.po-cases .po-st { grid-column: 3; font-size: .74rem; color: var(--faint); }
+
+/* Dáme na vás: the sign in the layer panel and the legend, the card of a proposal */
+.lg.paro { background: #f18b51; color: var(--sky); border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--text); font-size: .72rem; width: 18px; height: 18px; }
+.paro-city { justify-self: start; margin: -2px 0 2px 30px; }
+.card .paro-cat { display: inline-block; align-self: flex-start; padding: 1px 8px; font-size: .74rem; font-weight: 700; letter-spacing: .02em; border: 2px solid var(--sky); }
+.card .sec.paro .paro-txt { white-space: pre-line; }
+.card .sec.paro details.paro-budget summary { cursor: pointer; font-size: .86rem; }
+.card .sec.paro details.paro-budget dl { margin-top: 6px; }
+.card .sec.paro .paro-list { margin: 0; padding: 0; list-style: none; }
+.card .sec.paro .paro-list button { display: block; text-align: left; }
+.card .sec.paro .paro-dot { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border: 1px solid var(--sky); vertical-align: middle; }
+.card .src-btn.inner::after { content: none; }
+
+/* street-level photos (Panoramax): the 360° viewer in the card, the legend swatch */
+.card .sec.pano .pano-view { position: relative; width: 100%; aspect-ratio: 16 / 10; background: #121827; border: 2px solid var(--sky); overflow: hidden; touch-action: none; }
+.card .sec.pano canvas { display: block; width: 100%; height: 100%; cursor: grab; outline: none; }
+.card .sec.pano canvas:active { cursor: grabbing; }
+.card .sec.pano canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--amber); }
+.card .sec.pano img.pano-flat { width: 100%; height: 100%; max-height: none; object-fit: contain; border: 0; background: #121827; }
+.card .sec.pano .pano-note { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px; font-size: .78rem; line-height: 1.35; background: rgba(22, 29, 43, .88); color: var(--text); }
+.card .sec.pano .pano-compass { position: absolute; top: 4px; left: 4px; padding: 2px 6px; font-size: .72rem; background: rgba(22, 29, 43, .78); color: var(--text); pointer-events: none; }
+.card .sec.pano .pano-compass:empty { display: none; }
+.card .sec.pano h3 { color: #8fd0f5; }
+.lg.pano { background: #8fd0f5; border-color: var(--sky); border-radius: 50%; width: 14px; }
+
+/* ---- quick tiles of the themes (src/quick.js): a column at the right edge under the top tiles, 44 px like the zoom
+   buttons; level dots under the icon; on phones a row above the tiles at the bottom with the names under the icons ---- */
+.qbar { position: fixed; z-index: 3; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 16px + 36px + 10px); display: grid; gap: 6px; }
+/* on a computer the card of a place and the overviews (Aktuálně, Události, Předpověď, the ride box) open left of the
+   tile column, so the tiles stay visible and clickable; --qcol is the strip the column takes (the landscape phone
+   block below sets its own, narrower one) */
+@media (min-width: 641px) {
+  :root { --qcol: calc(max(16px, env(safe-area-inset-right, 0px)) + 44px + 8px); }
+  .card, .events, .fc-pop, .ride-box { right: var(--qcol); }
+  /* (the card ends above the clock, which stands at the same height in the right corner: the card used to cover it) */
+  .card { bottom: calc(env(safe-area-inset-bottom, 0px) + 70px + 36px + 8px); max-height: min(60%, calc(100% - 70px - 36px - 8px - 62px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); }
+}
+.qt { position: relative; cursor: pointer; display: grid; place-items: center; align-content: center; gap: 3px; box-sizing: border-box; width: 44px; height: 44px; padding: 0;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  background: var(--box-in); border: 2px solid var(--rim); color: var(--faint); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); font-family: var(--font-text); font-weight: 700; }
+.qt:hover, .qt:focus-visible { background: var(--box); color: var(--text); }
+.qt:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(0, 0, 0, .35); }
+.qt .ico { width: 24px; height: 24px; display: block; }
+.qt .l { display: none; font-size: .6rem; line-height: 1; white-space: nowrap; } /* (the bold text face is wider than the pixel one was: a step smaller, no extra spacing, so Doprava and Senzory fit the tile) */
+.qt .dots, .qt-mini .dots { display: flex; gap: 2px; height: 4px; }
+.qt .dots i, .qt-mini .dots i { width: 4px; height: 4px; background: currentColor; opacity: .28; }
+.qt .dots i.on, .qt-mini .dots i.on { opacity: 1; }
+.qt[aria-pressed="true"], .qt-mini[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit); color: var(--text); }
+.qt[aria-pressed="true"] .dots i, .qt-mini[aria-pressed="true"] .dots i { opacity: .35; }
+.qt[aria-pressed="true"] .dots i.on, .qt-mini[aria-pressed="true"] .dots i.on { opacity: 1; }
+/* a combination ticked by hand in Vrstvy that is no level: a green inner frame */
+.qt.custom { box-shadow: inset 0 0 0 2px var(--leaf), 2px 2px 0 rgba(0, 0, 0, .35); }
+.qt-mini.custom { box-shadow: inset 0 0 0 2px var(--leaf); }
+/* the menu after a click: the levels of the group, any of them chosen directly (five seconds beside the tile) */
+.qt-menu { position: absolute; right: calc(100% + 8px); top: 0; z-index: 2; display: grid; gap: 2px; width: max-content; min-width: 190px; max-width: 300px; box-sizing: border-box;
+  background: var(--sky); color: var(--text); border: 2px solid var(--amber); padding: 6px; font-family: var(--font-text); font-size: .85rem; box-shadow: 3px 3px 0 rgba(0, 0, 0, .35); }
+.qm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 0 6px 4px; }
+.qm-head b { font-family: var(--font-text); font-weight: 700; font-size: .95rem; color: var(--amber); }
+.qm-head small { color: var(--faint); margin-left: auto; }
+.qm-x { all: unset; box-sizing: border-box; cursor: pointer; display: inline-grid; place-items: center; width: 28px; height: 28px; margin: -4px -4px 0 0; border: 1px solid var(--rim); color: var(--text); font-family: var(--font-pixel); font-size: 1rem; }
+.qm-x:hover, .qm-x:focus-visible { border-color: var(--amber); }
+.qm-row { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 3px 8px; border: 1px solid transparent; line-height: 1.25; }
+.qm-row:hover, .qm-row:focus-visible { background: var(--box-in); border-color: var(--rim); }
+.qm-row i { flex: none; width: 14px; height: 14px; box-sizing: border-box; border: 2px solid var(--faint); }
+.qm-row[role="menuitemradio"] i { border-radius: 50%; }
+.qm-row[aria-checked="true"] i { background: var(--brick); border-color: var(--brick-lit); }
+.qm-row[aria-pressed="true"] i { background: var(--brick); border-color: var(--brick-lit); }
+/* a row with the beacon of its theme at the right (src/quick.js, focusButton of src/main.js) */
+.qm-line { display: flex; align-items: center; gap: 4px; }
+.qm-line .qm-row { flex: 1 1 auto; }
+.qm-line .focus-btn { flex: 0 0 auto; width: 30px; min-height: 30px; padding: 0; }
+.qm-line .focus-btn .px-ico { width: 15px !important; height: 15px !important; }
+.qm-row.qm-off { color: var(--faint); border-top: 1px solid var(--rim); margin-top: 2px; }
+.qm-row.qm-off i { border: 0; background: none; }
+.qm-row.qm-off i::before { content: "×"; display: block; margin-top: -5px; font-size: 1rem; }
+.qm-more { all: unset; cursor: pointer; font-size: .78rem; color: var(--faint); padding: 6px 8px 2px; text-align: right; }
+.qm-more:hover, .qm-more:focus-visible { color: var(--text); text-decoration: underline; }
+/* the small copy of a tile in the heading of its Vrstvy section */
+.qt-mini { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; display: inline-grid; place-items: center; align-content: center; gap: 2px; width: 30px; height: 30px; box-sizing: border-box; margin-right: 8px; vertical-align: middle; cursor: pointer;
+  background: var(--box-in); border: 2px solid var(--rim); color: var(--faint); }
+.qt-mini .ico { width: 16px; height: 16px; display: block; }
+.qt-mini .dots { height: 3px; gap: 1px; } .qt-mini .dots i { width: 3px; height: 3px; }
+/* the controls that were glyphs of the font: the pixel icons of the same raster */
+.evt-tile .i .ico, .tab .ti .ico { width: 18px; height: 18px; display: block; }
+.controls .pbtn .ico { width: 18px; height: 18px; }
+@media (max-width: 640px) {
+  .qbar { top: auto; right: 10px; left: 10px; bottom: calc(116px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; }
+  .qt { flex: 1 1 0; width: auto; min-width: 0; height: 56px; padding: 0 2px; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+  .qt .l { display: block; } .qt .l.s { display: none; }
+  .qbar.n7 .qt .l { display: none; } .qbar.n7 .qt .l.s { display: block; }
+  .pane-open .qbar { display: none; }
+  .qt-menu { position: fixed; left: 10px; right: 10px; top: auto !important; bottom: calc(178px + env(safe-area-inset-bottom, 0px)); width: auto; max-width: none; }
+  .qm-row { min-height: 40px; }
+}
+.lsec > summary > .qt-mini { flex: 0 0 30px; margin-right: 0; }
+
+/* ---- a phone lying on its side (wider than 640 px, at most 500 px high): the computer layout, packed for the low
+   screen so nothing lies over anything. Left: the panel, down to the clock in the bottom left corner (no minimap).
+   The right edge: the column of theme tiles from the top, as big as fits above the corner button (--qt). Left of that
+   column: Aktuálně / Události / Předpověď in a row at the top (icons, the count and the temperature; the names in their
+   tooltips), the zoom buttons at the bottom with my position at the right end of the row. The corner button (bottom
+   right) hides the controls, my position stays; the card of a place and the overviews open in between.
+   --qcol is the strip the tile column takes at the right. ---- */
+.dock-btn { display: none; }
+@media (min-width: 641px) and (max-height: 500px) {
+  :root {
+    --qcol: calc(max(12px, env(safe-area-inset-right, 0px)) + 44px + 8px);
+    --qt: clamp(30px, calc((100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px - 12px - 44px - 8px - 24px) / 7), 44px);
+  }
+  @supports (height: 100dvh) {
+    :root { --qt: clamp(30px, calc((100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px - 12px - 44px - 8px - 24px) / 7), 44px); }
+  }
+  .panel {
+    top: calc(env(safe-area-inset-top, 0px) + 12px); left: max(12px, env(safe-area-inset-left, 0px));
+    width: min(280px, calc(100vw - 32px)); max-height: calc(100% - 12px - 12px - 36px - 8px - var(--chip, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    padding: 10px 12px; gap: 8px; box-sizing: border-box; /* (the padding and border inside the height: it ends above the clock, and above the highlight chip over it, --chip from main.js) */
+  }
+  .intro-panel { display: none; }
+  .minimap, .mini-show { display: none !important; }
+  .tuck { left: calc(max(12px, env(safe-area-inset-left, 0px)) + var(--pw, 280px)); top: calc(env(safe-area-inset-top, 0px) + 22px); }
+  /* folded: no arrow, the ☰ button in the top left corner (as the folded top bar of an upright phone), the logo beside it */
+  .folded .tuck { left: max(12px, env(safe-area-inset-left, 0px)); top: calc(env(safe-area-inset-top, 0px) + 12px); width: 44px; height: 44px; }
+  .folded .tuck .tuck-ham { width: 18px; height: 18px; }
+  .folded .brand { top: calc(env(safe-area-inset-top, 0px) + 12px); left: calc(max(12px, env(safe-area-inset-left, 0px)) + 44px + 12px); height: 44px; line-height: 44px; }
+  .hud-top { top: calc(env(safe-area-inset-top, 0px) + 12px); right: var(--qcol); gap: 6px; }
+  .hud-top .l { display: none; }
+  .fc-tile, .evt-tile { padding: 4px 8px; }
+  /* the tile column: from the top, tiles of --qt (a smaller icon when they are small), right above the corner button */
+  .qbar { top: calc(env(safe-area-inset-top, 0px) + 12px); right: max(12px, env(safe-area-inset-right, 0px)); gap: 4px; justify-items: end; }
+  .qbar .qt { width: var(--qt); height: var(--qt); gap: 2px; }
+  .qbar .qt .ico { width: min(24px, calc(var(--qt) - 14px)); height: min(24px, calc(var(--qt) - 14px)); }
+  /* the bottom row left of the corner: zoom, home, share, then my position at the right end */
+  .controls { right: var(--qcol); bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  .controls .locate { order: 1; }
+  .dock-btn { position: fixed; z-index: 3; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    width: 44px; height: 44px; min-height: 44px; padding: 0; place-items: center; color: var(--text); }
+  .dock-btn .ico { width: 18px; height: 18px; }
+  #dockMin { display: grid; }
+  .clock { left: max(12px, env(safe-area-inset-left, 0px)); right: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  .card { box-sizing: border-box; right: var(--qcol); bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); width: min(300px, calc(100vw - 32px)); max-height: calc(100% - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  .events, .fc-pop, .ride-box { box-sizing: border-box; top: calc(env(safe-area-inset-top, 0px) + 12px + 36px + 8px); right: var(--qcol); max-height: calc(100% - 56px - 12px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  .fcpill { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  /* hidden to the corner (the same state as the folded bottom bar of an upright phone): the tiles, the row at the top,
+     the clock and the zoom buttons go; my position stays where it was, the corner button brings the rest back */
+  .tabs-min .qbar, .tabs-min .qt-menu, .tabs-min .hud-top, .tabs-min .clock, .tabs-min .controls > :not(.locate), .tabs-min #dockMin { display: none; }
+  .tabs-min #dockMax { display: grid; }
+  .tabs-min .panel { max-height: calc(100% - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  /* riding along: the box and the card share the right side, so while a card is open the box waits behind it; with
+     the tiles hidden the box moves to the right edge */
+  body:has(#card:not([hidden])) .ride-box { display: none; }
+  .tabs-min .ride-box { right: max(12px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100% - 24px - 56px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); } /* (the row of tiles above it is hidden: up to the top edge; the corner buttons stay free below) */
+}
+
+/* ---- "Číst" (src/reader.js): the texts of a card over the whole screen of a phone, running upwards like a
+   teleprompter; the lamp-yellow marks at the sides show the line being read. Controls: a bar at the bottom,
+   a column at the right on a phone held sideways. */
+dialog.reader { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; border: 0; overflow: hidden;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: rgba(10, 14, 24, .95); color: var(--text); }
+dialog.reader[open] { display: flex; flex-direction: column; }
+dialog.reader::backdrop { background: transparent; }
+.reader .rd-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.reader .rd-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 8px 16px; }
+.reader .rd-head h2 { flex: 1; margin: 0; font-family: var(--font-pixel); font-weight: 400; font-size: 1.25rem; color: var(--amber); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reader .rd-x { width: 44px; height: 44px; min-width: 44px; padding: 0; }
+.reader .rd-prog { height: 4px; margin: 0 16px; background: var(--rim); }
+.reader .rd-prog b { display: block; height: 100%; width: 0; background: var(--leaf); transition: width .3s; }
+.reader .rd-view { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
+.reader .rd-view::before, .reader .rd-view::after { content: ""; position: absolute; left: 0; right: 0; height: 24%; z-index: 1; pointer-events: none; }
+.reader .rd-view::before { top: 0; background: linear-gradient(rgba(10, 14, 24, .96), transparent); }
+.reader .rd-view::after { bottom: 0; background: linear-gradient(transparent, rgba(10, 14, 24, .96)); }
+.reader .rd-mark { position: absolute; top: 34%; left: 0; width: 7px; height: 1.9rem; background: var(--amber); z-index: 2; }
+.reader .rd-mark + .rd-mark { left: auto; right: 0; }
+.reader .rd-track { position: absolute; left: 0; right: 0; top: 0; padding: 0 20px; will-change: transform; }
+.reader .rd-track p { margin: 0 0 16px; font-size: 1.32rem; line-height: 1.42; }
+.reader .rd-track p.rd-title { font-family: var(--font-pixel); font-size: 1.7rem; line-height: 1.15; }
+/* on a desktop (Číst there too since 2026-11-10): a panel in the left third, the map beside it stays visible and
+   usable (reader.js opens it with show(), not as a modal) */
+@media (min-width: 900px) and (min-height: 501px) {
+  dialog.reader { inset: 0 auto 0 0; width: clamp(360px, 33vw, 560px); border-right: 2px solid var(--rim); box-shadow: 6px 0 0 rgba(0, 0, 0, .3); z-index: 20; }
+}
+.reader .rd-track h3 { margin: 22px 0 8px; font-family: var(--font-text); font-weight: 700; font-size: .9rem; letter-spacing: .08em; text-transform: uppercase; color: var(--leaf); }
+.reader .rd-track .credit { display: block; margin: 0 0 8px; font-size: .78rem; color: var(--faint); }
+.reader .rd-s { color: #77839a; transition: color .3s; }
+.reader .rd-s.past { color: #56617b; }
+.reader .rd-s.cur { color: var(--text); }
+.reader .rd-note { margin: 0; padding: 6px 16px; font-size: .8rem; color: var(--amber); }
+.reader .rd-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px 12px; border-top: 2px solid var(--rim); background: var(--box); }
+.reader .rd-bar .pbtn { min-width: 48px; min-height: 48px; padding: 0 10px; font-size: 1.1rem; }
+.reader .rd-bar .rd-play { flex: 1; background: var(--amber); border-color: #ffe29a; color: var(--sky); }
+@media (min-width: 641px) and (max-height: 500px) {
+  dialog.reader[open] { flex-direction: row; }
+  .reader .rd-track { padding: 0 28px; }
+  .reader .rd-head { padding-top: 6px; padding-bottom: 6px; }
+  .reader .rd-bar { flex-direction: column; justify-content: center; width: 96px; padding: 8px 10px; border-top: 0; border-left: 2px solid var(--rim); }
+  .reader .rd-bar .pbtn { width: 100%; min-height: 44px; }
+  .reader .rd-bar .rd-play { flex: 0 0 auto; }
+}
+/* Nainstalovat aplikaci (src/install.js): the tip with the steps for iOS / the button for Android. On a wide screen a
+   small box above the bottom edge, on a phone a sheet above the bottom bar like a card */
+.install-tip { position: fixed; z-index: 5; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); transform: translateX(-50%);
+  box-sizing: border-box; width: min(400px, calc(100vw - 32px)); display: grid; gap: 10px; padding: 12px 14px;
+  background: var(--box); color: var(--text); border: 2px solid var(--rim); border-top-color: var(--brick); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35); font-size: .88rem; }
+.install-tip .close { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; padding: 0; }
+.install-tip .it-head { display: flex; gap: 10px; align-items: center; margin-right: 36px; }
+.install-tip .it-head img { flex: none; image-rendering: pixelated; border: 2px solid var(--rim); }
+.install-tip h2 { margin: 0; font-family: var(--font-pixel); font-weight: 500; font-size: 1.25rem; line-height: 1.1; }
+.install-tip p { margin: 2px 0 0; color: var(--faint); font-size: .82rem; line-height: 1.35; }
+.install-tip p.it-text { margin: 0; color: var(--text); font-size: .88rem; }
+.install-tip .it-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: it; }
+.install-tip .it-steps li { counter-increment: it; position: relative; padding-left: 32px; min-height: 24px; line-height: 1.45; }
+.install-tip .it-steps li::before { content: counter(it); position: absolute; left: 0; top: 0; width: 22px; height: 22px; box-sizing: border-box; display: grid; place-items: center;
+  font-family: var(--font-pixel); font-size: 1rem; line-height: 1; background: var(--brick-on); border: 1px solid var(--brick-lit); }
+.install-tip .it-steps small { display: block; color: var(--faint); font-size: .78rem; }
+.install-tip .it-key { display: inline-grid; place-items: center; width: 24px; height: 24px; vertical-align: -7px; margin: 0 1px; background: var(--box-in); border: 1px solid var(--rim); color: #6aa8ff; }
+.install-tip .it-key svg { width: 16px; height: 16px; }
+.install-tip .it-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.install-tip .it-btns .pbtn { min-height: 44px; padding: 6px 16px; }
+.install-tip .it-go { background: var(--brick-on); border-color: var(--brick-lit); }
+@media (max-width: 640px) {
+  .install-tip { left: 0; right: 0; width: auto; transform: none; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); border-width: 2px 0 0; box-shadow: 0 -4px 0 rgba(0, 0, 0, .3);
+    padding: 12px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); }
+  .install-tip .close { top: 10px; right: max(10px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; }
+  .install-tip .it-head { margin-right: 44px; }
+  .tabs-min .install-tip { bottom: env(safe-area-inset-bottom, 0px); }
+  /* another sheet opened over it: the tip waits underneath */
+  .pane-open .install-tip, body:has(#card:not([hidden])) .install-tip, body:has(#events:not([hidden])) .install-tip, body:has(#aktual:not([hidden])) .install-tip, body:has(#fcPop:not([hidden])) .install-tip { display: none; }
+  body:has(#installTip:not([hidden])) #tabsMax, body:has(#installTip:not([hidden])) .fc-tile, body:has(#installTip:not([hidden])) .evt-tile, body:has(#installTip:not([hidden])) .clock, body:has(#installTip:not([hidden])) .qbar, body:has(#installTip:not([hidden])) .controls { display: none; }
+}
+
+/* "Ukázat všechny" in the head of a card (a beacon alone, as big as ×; focusButton in main.js) and the chip above the map while a theme is highlighted */
+/* the buttons in the head of a card (beacon, Číst, Nastoupit) and ×: one height, one line, a wider gap before × */
+.card .close { width: 34px; height: 34px; min-height: 0; }
+.card-act { display: flex; align-items: flex-start; gap: 6px; margin: -6px 42px 0 0; }
+.card-act .pbtn { height: 34px; min-height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
+.card-act .focus-btn { width: 34px; padding: 0; }
+.focus-btn .px-ico, .focus-chip .px-ico { width: 18px !important; height: 18px !important; color: #d9a93a; flex: 0 0 auto; }
+.focus-btn[aria-pressed="true"] .px-ico { color: var(--text); }
+.focus-chip { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); box-sizing: border-box; background: var(--box); color: var(--text); border: 2px solid #d9a93a; padding: 3px 3px 3px 10px; font-family: var(--font-text); font-weight: 700; font-size: .82rem; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+.focus-chip[hidden] { display: none; }
+/* the look of the map is not "as in Brno now" (or it is night there): what the map shows and the way back, under the chip of the highlight when both are there */
+.look-chip { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); box-sizing: border-box; white-space: nowrap;
+  background: var(--box); color: var(--text); border: 2px solid #5fb3e6; padding: 3px 3px 3px 10px; font-family: var(--font-text); font-weight: 700; font-size: .82rem; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+.look-chip .l { overflow: hidden; text-overflow: ellipsis; }
+.look-chip .pbtn { min-height: 26px; padding: 0 9px; flex: none; }
+body:has(#focusChip:not([hidden])) .look-chip { top: 98px; }
+.dm-chip { border-color: var(--rim); }
+body:has(#focusChip:not([hidden])) .dm-chip { top: 98px; } /* (a datová mapa on, src/main.js dmChip: under the chip of the highlight) */
+.focus-chip .pbtn { min-height: 26px; padding: 0 9px; margin-left: auto; } /* (× at the right edge also when the chip is wider than its text: above the clock on a phone lying on its side) */
+@media (max-width: 640px) {
+  .card .close { width: 44px; height: 44px; } /* as big as × on a phone, the same gap before it */
+  .card-act { margin: -18px 56px 0 0; }
+  .card-act .pbtn { height: 44px; min-height: 44px; }
+  .card-act .focus-btn { width: 44px; }
+  .focus-chip { top: calc(64px + env(safe-area-inset-top, 0px)); } /* under the menu button and the name */
+}
+
+/* ---- the search with nothing found; the two quick looks in Vzhled; what a switch in Vrstvy means ---- */
+.noresults { margin: 6px 0 0; font-size: .85rem; color: var(--faint); }
+.lookquick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.lookquick .pbtn:only-child, .lookquick .pbtn:first-child:has(+ [hidden]) { grid-column: 1 / -1; }
+.lh { all: unset; flex: none; cursor: pointer; display: inline-grid; place-items: center; width: 20px; height: 20px; box-sizing: border-box; border: 1px solid var(--rim); color: var(--faint); font-family: var(--font-text); font-weight: 700; font-size: .78rem; letter-spacing: 0; }
+.lh:hover, .lh:focus-visible, .lh[aria-expanded="true"] { color: var(--text); border-color: var(--amber); }
+.lsec > summary > .lh { margin-left: 8px; }
+.realtime.lone .lh { margin-left: auto; }
+.lsec.hints > .layers { grid-template-columns: 1fr; }
+.lhint { grid-column: 1 / -1; margin: -2px 0 2px; padding: 4px 8px; font-size: .78rem; line-height: 1.35; color: var(--faint); background: var(--box-in); border-left: 2px solid var(--amber); }
+.loading .retry { pointer-events: auto; }
+.loading.failed span { max-width: 22em; text-align: center; font: 400 1rem/1.45 var(--font-text); color: var(--text); margin: 0 16px; }
+
+@media (max-width: 640px) {
+  /* the chips and the ride box stand in a column under the top bar (src/main.js placeTop sets their top) */
+  .focus-chip, .fcpill { top: calc(72px + env(safe-area-inset-top, 0px)); bottom: auto; }
+  /* no chip of the look over the small map of a phone: the Vzhled tab carries the state (a moon while it is dark, a
+     yellow mark while the map does not look as Brno does now) and the way back is inside it */
+  .look-chip { display: none !important; }
+  .fcpill { white-space: nowrap; }
+}
+@media (min-width: 641px) and (max-height: 500px) {
+  /* a phone on its side: the chip of the look at the bottom, where the pill of a previewed forecast hour is */
+  .look-chip, body:has(#focusChip:not([hidden])) .look-chip { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  .qt-menu { top: 0 !important; max-height: calc(100vh - 24px); overflow: auto; }
+}
+
+/* ---- touch screens of any width: targets big enough for a finger (a tablet gets the computer layout, so the sizes
+   must not hang on the width alone) ---- */
+@media (pointer: coarse) {
+  .pbtn.small { min-height: 36px; }
+  .layers label { min-height: 36px; }
+  .lh { width: 32px; height: 32px; }
+  details summary { padding: 8px 0; }
+  .results button, .places button { padding: 10px 8px; }
+  .deps li, .itinerary li, .rb-stops li { padding-top: 8px; padding-bottom: 8px; }
+  .lbtn { min-width: 36px; padding: 7px 8px; }
+  .mhdmode .pbtn { min-height: 40px; }
+  .evt-head .close, dialog.modal .close { width: 44px; height: 44px; }
+  .look-chip .pbtn, .focus-chip .pbtn { min-height: 34px; }
+  .qm-row { min-height: 40px; }
+}
+@media (pointer: coarse) and (min-width: 641px) and (min-height: 501px) {
+  .folded .brand { left: calc(max(16px, env(safe-area-inset-left, 0px)) + 44px + 14px); height: 44px; line-height: 44px; } /* beside the bigger ☰ (a phone on its side has its own) */
+}
+@media (pointer: coarse) and (min-width: 641px) {
+  .tuck { width: 34px; height: 64px; }
+  .folded .tuck { width: 44px; height: 44px; }
+  .folded .tuck .tuck-ham { width: 18px; height: 18px; }
+  .sq-btn { width: 40px; height: 40px; }
+  .pane-close { width: 44px; height: 44px; }
+  .look-btn { width: 36px; height: 36px; }
+  .card .close { width: 44px; height: 44px; }
+  .card h2 { padding-right: 46px; }
+  .card-act { margin-right: 46px; }
+  .card-act .pbtn { height: 44px; min-height: 44px; }
+  .card-act .focus-btn { width: 44px; }
+}
+
+/* the Vzhled tab tells the state of the look: a yellow mark while the map does not look as Brno does now */
+.tab { position: relative; }
+.tab.alt::after { content: ''; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; background: var(--amber); box-shadow: 0 0 0 2px var(--sky); }
+.lookrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
+.looknow { min-height: 44px; line-height: 1.15; }
+.looknow[data-mode="now"] { background: var(--amber); border-color: #ffe29a; color: var(--sky); }
+.looknow:disabled { opacity: 1; color: var(--faint); }
+.lookstate { margin: 0; display: grid; gap: 2px; padding: 8px 10px; background: var(--box-in); border-left: 3px solid var(--leaf); }
+.lookstate.manual { border-left-color: var(--amber); }
+.lookstate .ls-what { font-family: var(--font-pixel); font-size: 1.05rem; line-height: 1.15; }
+.lookstate .ls-why { font-size: .78rem; color: var(--faint); line-height: 1.35; }
+#weatherLiveNote { display: none; }
+.toast .pbtn { margin-left: 10px; min-height: 30px; padding: 2px 10px; }
+.toast:has(.pbtn) { display: flex; align-items: center; white-space: nowrap; }
+@media (max-width: 640px) { .toast { bottom: calc(180px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; }
+  /* (the roles of Vrstvy: over the search at the top, so the sheet with the tiles and the switches stays free) */
+ .tabs-min .toast { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  .toast.high, .tabs-min .toast.high { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 12px); } }
+
+/* ---- Objevuj: three lists in fold-out sections (the look of the sections of Vrstvy), each item a name with a small note at the right ---- */
+.exsec > .places { margin: 4px 0 6px; }
+.exsec .places button { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.exsec .places button > span { min-width: 0; }
+.exsec .places small { flex: none; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font-size: .72rem; }
+.exsec .places button[aria-current] { background: var(--box-in); outline: 1px solid var(--amber); }
+.exsec > .livenote { margin-bottom: 8px; }
+@media (max-width: 640px) { .exsec .places button { min-height: 40px; } .exsec .routestops button { min-height: 36px; } }
+.card .routestops { max-height: none; margin: 0; }
+.card .routestops button { padding: 5px 6px; }
+.card .routestops li + li { border-top: 1px solid var(--box-in); }
+/* the way back in a card (‹ Zpět: Objevuj, ‹ Zpět na události) stands under the head, not above it: the head stays the
+   first row, so its buttons (Číst, Nastoupit, the beacon) are level with × whether the way back is there or not */
+.card > .grip { order: -2; }
+.card > .card-head { order: -1; }
+.card > .card-back { margin: 0 0 2px; }
+/* no chip of the look above the map on a computer either: the Vzhled tab carries the state everywhere (a moon while it
+   is dark, a yellow mark while the map does not look as Brno does now) and the way back is inside it */
+.look-chip { display: none !important; }
+.qm-head { align-items: center; }
+@media (pointer: coarse), (max-width: 640px) { .qm-x { width: 36px; height: 36px; } }
+
+/* Výjezdy hasičů: the card of an intervention (src/hasici.js, showHasici) */
+.card .hz-state { margin: 0; padding: 6px 8px; border: 2px solid var(--faint); font-size: .95rem; } /* (the first thing in the card, in its slot #cardTop above the text) */
+.card .hz-state.live { border-color: #d8362a; background: rgba(216, 54, 42, .14); animation: hz-blink 1.2s steps(2, jump-none) infinite; }
+@keyframes hz-blink { 50% { border-color: #3fa0ff; } }
+@media (prefers-reduced-motion: reduce) { .card .hz-state.live { animation: none; } }
+.sec.hasici h4 { margin: 8px 0 2px; font-size: .9rem; }
+.card .hz-state.vd-now { border-color: #2b62c4; background: rgba(43, 98, 196, .12); } /* (Voda: a shut-off running now, src/voda.js) */
+.sec.voda h4 { margin: 8px 0 2px; font-size: .9rem; }
+.sec.voda .hz-units { margin: 0 0 8px; padding-left: 18px; font-size: .88rem; }
+.sec.hasici .hz-units { margin: 0 0 8px; padding-left: 18px; font-size: .88rem; }
+/* Parkovací domy (src/parking.js): the live block of the card, a big number and a thermometer laid on its side */
+.sec.parking-live .pk-big { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 6px; }
+.sec.parking-live .pk-big strong { font-family: "VT323", monospace; font-weight: 400; font-size: 3.2rem; line-height: .9; }
+.sec.parking-live .pk-big span { font-size: 1rem; }
+.sec.parking-live .pk-big .pk-out { font-size: 2.4rem; color: var(--faint); }
+.sec.parking-live .pk-bar { position: relative; height: 18px; border: 2px solid var(--rim); background: #fff6d8; box-shadow: 3px 3px 0 rgba(0,0,0,.35); margin: 0 0 6px; }
+.sec.parking-live .pk-bar i { position: absolute; left: 0; top: 0; bottom: 0; transition: width .6s steps(12); }
+.sec.parking-live .pk-bar b { position: absolute; top: 0; width: 2px; height: 6px; background: var(--sky); transform: translateX(-1px); }
+.sec.parking-live .pk-pct { margin: 0 0 6px; font-size: .9rem; color: var(--faint); }
+.sec.parking-live .pk-sub { margin: 0 0 6px; font-size: .88rem; }
+.sec.parking-live .pk-none { margin: 4px 0 8px; padding: 6px 8px; border: 2px solid var(--faint); }
+@media (prefers-reduced-motion: reduce) { .sec.parking-live .pk-bar i { transition: none; } }
+.sec.parking-hist .pk-hhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sec.parking-hist .pk-hhead h3 { margin: 0; }
+.sec.parking-hist .row2 { display: flex; gap: 4px; margin: 0; }
+.parkchart .area { fill: var(--text); opacity: .10; }
+.parkchart .seg { stroke-width: 2.2; stroke-linecap: round; }
+.parkchart .lim.warn { stroke: #e8a42a; }
+.parkchart .lim.full { stroke: #d8362a; }
+.parkchart .midnight { stroke: #c9cfbf; stroke-width: 1; stroke-dasharray: 1 3; opacity: .7; }
+.parkchart .day { font-size: 9px; opacity: .8; }
+
+/* Nachystané odkazy in the Přehled dat dialog (openData) */
+.datalinks { margin: 14px 0 6px; }
+.datalinks h3 { margin: 0 0 4px; }
+.datalinks ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+.datalinks li a { font-weight: 700; }
+.data-tabs { margin: 0 0 10px; }
+
+/* ---- a phone with the bottom controls hidden to the corner: the weather and the traffic as a low strip in the bottom
+   left corner, level with the corner button (index.html #miniHud; it stays in place, an open card or overview covers it) ---- */
+.mini-hud { display: none; }
+@media (max-width: 640px), (min-width: 641px) and (max-height: 500px) {
+  .tabs-min .mini-hud { display: flex; position: fixed; z-index: 3; left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); opacity: .9; gap: 5px; } /* (three small boxes, each with its whole frame) */
+  .mini-hud .pbtn { position: relative; display: flex; align-items: center; gap: 6px; height: 30px; min-height: 0; padding: 0 8px; background: var(--sky); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); font-size: 1.2rem; line-height: 1; white-space: nowrap; }
+  .mini-hud .look-btn { width: 32px; padding: 0; justify-content: center; }
+  .mini-hud .look-btn .ico { width: 14px; height: 14px; }
+  .mini-hud .pbtn::after { content: ""; position: absolute; inset: -9px 0; } /* (a taller place to tap than the strip itself) */
+  .mini-hud .pbtn[aria-expanded="true"] { border-color: var(--brick-lit); }
+  .mini-hud .i { font-family: system-ui, sans-serif; font-size: .85rem; display: grid; place-items: center; }
+  .mini-hud .i svg { display: block; }
+  .mini-hud .t:empty { display: none; }
+  .mini-hud .w { color: var(--faint); font-size: 1rem; }
+  body:has(#installTip:not([hidden])) .mini-hud { display: none; }
+}
+@media (min-width: 641px) and (max-height: 500px) { .tabs-min .mini-hud { left: max(12px, env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); } }
+/* a computer: the lists under the top row (Dnes v Brně, Události, Aktuálně) and the overview of the weather and of
+   Doprava end above the clock in the bottom right corner (70 px from the bottom + its 36 px + a gap), like the card */
+@media (min-width: 641px) and (min-height: 501px) {
+  .events, .fc-pop { max-height: calc(100% - 62px - 116px - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); } /* (28 px: their own padding and border, the height is that of the content) */
+}
+
+/* Spojení (src/spojeni.js): the switch above the search, the form, the journeys, the card of one journey */
+.qrow { display: flex; align-items: start; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.qmode { display: flex; gap: 6px; }
+.qrow .kontrast-btn { display: inline-grid; place-items: center; width: 40px; padding: 0; }
+.panel.spoj-mode .search > :not(.qrow) { display: none !important; }
+.spoj { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; } /* (the column keeps the width of the panel: a long line is cut, see .sp-bar-t) */
+.sp-ends { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+.sp-fields { display: grid; gap: 4px; min-width: 0; }
+.sp-field { display: flex; align-items: center; gap: 8px; background: var(--box-in); border: 2px solid var(--rim); padding: 0 8px; }
+.sp-field:focus-within { border-color: var(--leaf); }
+.sp-field input { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--text); font: inherit; padding: 7px 0; outline: none; }
+.sp-field input::placeholder { color: var(--faint); }
+.sp-dot { width: 10px; height: 10px; flex: none; border: 2px solid var(--sky); }
+.sp-dot.a { background: var(--leaf); }
+.sp-dot.b { background: var(--brick); }
+.sp-swap { align-self: stretch; min-width: 36px; }
+.sp-sug { margin: 0; }
+.sp-sug:empty { display: none; }
+.sp-none { color: var(--faint); font-size: .8rem; padding: 4px 8px; }
+/* (one row, never two: the buttons keep their width, the box of the time gives way when the row is short) */
+.sp-when { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; font-size: .8rem; color: var(--faint); }
+.sp-when > * { flex: none; }
+.sp-when > .sp-timebox { position: relative; display: flex; flex: 0 1 auto; min-width: 0; }
+.sp-when > .sp-timebox[hidden] { display: none; }
+/* "Jak se pohybuji" (who travels, src/spojstav.js WAYS): one button with its picture at the end of the row of the time,
+   lit when it is not the usual walk; the choices open under the row */
+.sp-waybtn { width: 36px; padding: 0; display: inline-grid; place-items: center; } /* (as wide as ⇅ above it, the last in the row) */
+.sp-waybtn .px-ico { width: 18px; height: 18px; color: var(--amber); }
+.sp-waybtn.on { background: var(--brick-on); border-color: var(--brick-lit); } .sp-waybtn.on .px-ico { color: var(--text); }
+/* the two ways without typing, side by side in the first row of the suggestions */
+.sp-sug .sp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sp-sug .sp-two:empty { display: none; }
+.sp-sug .sp-two button { justify-content: center; background: var(--box-in); border: 2px solid var(--rim); padding: 5px 6px; white-space: nowrap; }
+.sp-sug .sp-two button:hover, .sp-sug .sp-two button.on, .sp-sug .sp-two button:focus-visible { border-color: var(--leaf); outline: none; }
+.sp-waymenu { margin: 0; }
+.sp-waymenu button { justify-content: flex-start; gap: 8px; align-items: center; }
+.sp-waymenu button .px-ico { flex: none; width: 16px; height: 16px; color: var(--amber); }
+.sp-waymenu button small { margin-left: auto; white-space: normal; text-align: right; }
+.panel.sp-compact .sp-waymenu, .panel.sp-picking .sp-waymenu { display: none; }
+/* ("zítra": the time set has passed today; a badge on the corner of the time, it takes no place in the row) */
+.sp-day { position: absolute; right: -3px; top: -8px; font-family: var(--font-text); font-weight: 700; font-size: .62rem; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--sky); background: var(--amber); padding: 2px 4px; pointer-events: none; }
+.sp-time { background: var(--box-in); color: var(--text); border: 2px solid var(--rim); font: inherit; font-size: .9rem; padding: 3px 6px; min-width: 0; max-width: 100%; box-sizing: border-box; }
+/* (the narrow panel: a phone opens its own clock on a tap, the little clock in the field only takes the width the
+   digits need) */
+@media (max-width: 640px) { .sp-time { padding: 3px 4px; } .sp-time::-webkit-calendar-picker-indicator { display: none; } }
+.sp-note { font-size: .8rem; color: var(--faint); margin: 0; line-height: 1.4; }
+.sp-opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sp-opt { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; gap: 4px; padding: 7px 9px; background: var(--box-in); border: 2px solid var(--rim); }
+.sp-opt:hover, .sp-opt:focus-visible { border-color: #5a6a8a; }
+.sp-opt[aria-pressed="true"] { border-color: var(--amber); }
+.sp-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.sp-times { font-family: var(--font-pixel); font-size: 1.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.sp-in { font-family: var(--font-pixel); font-size: 1.05rem; color: var(--faint); white-space: nowrap; }
+.sp-in.soon { color: var(--leaf); }
+.sp-in.gone { color: #ff9a6a; }
+.sp-opts li.gone .sp-opt { opacity: .6; } /* (a journey gone: dimmed, without the tags) */
+.sp-chips { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.sp-chips .lbadge { font-size: .95rem; padding: 0 5px; }
+.sp-arrow { color: var(--faint); font-size: .8rem; }
+/* a journey without barriers (low-floor vehicles, posts without barriers: tt.wa, tt.wb): the sign at the end of the
+   row of its lines; in the card the sentence under the sum and, at a ride, what stands in the way */
+.sp-free { margin-left: auto; display: inline-flex; color: var(--amber); }
+.sp-free .px-ico { width: 16px; height: 16px; }
+.sp-freep { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-size: .82rem; line-height: 1.35; color: var(--faint); }
+.sp-freep .px-ico { flex: none; width: 16px; height: 16px; color: var(--amber); margin-top: 1px; }
+.sp-nofree { color: #ffb07a; }
+.sp-walk { font-family: "VT323", monospace; font-size: 1rem; color: var(--faint); }
+.sp-sub { font-size: .76rem; color: var(--faint); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.sp-tag { font-family: var(--font-text); font-weight: 700; font-size: .68rem; letter-spacing: .03em; text-transform: uppercase; color: var(--leaf); border: 1px solid var(--rim); padding: 0 4px; } /* (bold text face: a step smaller and tighter than the pixel one was, so two tags stay on one line) */
+.sp-tag.warn { color: #ffb07a; border-color: #6a5330; }
+.sp-delay { font-weight: 700; font-variant-numeric: tabular-nums; }
+.sp-delay.late { color: #ff9a6a; }
+.sp-delay.early { color: #8fe08a; }
+.sp-delay.ok { color: var(--faint); font-weight: 400; }
+.sp-empty { color: var(--faint); font-size: .84rem; padding: 4px 0; }
+.sp-more { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.sp-more[hidden], .sp-more .pbtn[hidden] { display: none; }
+.sp-more-say { flex: 1; min-width: 0; color: var(--faint); font-size: .8rem; }
+.sp-more-say:empty { display: none; }
+.sp-more:not(.sp-more-top) .pbtn { margin-left: auto; }
+.sp-entry { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0 8px; }
+.sp-entry-l { font-size: .8rem; color: var(--faint); }
+.sp-card { display: grid; gap: 8px; }
+.sp-sum { font-family: var(--font-pixel); font-size: 1.1rem; margin: 0; }
+.sp-late { margin: 0; font-size: .82rem; line-height: 1.35; color: #ffb07a; } /* ("Příjezd do": this one ends later than asked for) */
+.sp-me { display: flex; gap: 8px; align-items: center; font-size: .8rem; color: var(--faint, #c9cfdb); }
+.sp-me p { margin: 0; flex: 1; }
+.sp-me .pbtn { flex: none; }
+.sp-live { background: #2b3550; border: 2px solid var(--rim); padding: 6px 8px; display: grid; gap: 5px; font-size: .84rem; }
+.sp-live-h { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.sp-live-h .lbadge { font-size: .95rem; padding: 0 5px; }
+.sp-live p { margin: 0; }
+.sp-live .pbtn { justify-self: start; }
+.sp-count { font-family: var(--font-pixel); font-weight: 400; font-size: 1.6rem; color: var(--amber); line-height: 1; white-space: nowrap; }
+.sp-warn { color: #ffb07a; }
+.sp-tl { list-style: none; margin: 0; padding: 0; display: grid; font-size: .86rem; }
+.sp-tl li { display: grid; grid-template-columns: 3.2em 12px 1fr; gap: 0 8px; }
+.sp-tl .tm { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1.25; }
+.sp-tl .tm s { display: block; color: var(--faint); font-weight: 400; font-size: .78rem; }
+.sp-tl .rail { position: relative; min-height: 22px; }
+.sp-tl .rail::before { content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 6px; background: var(--c, transparent); }
+.sp-tl li.stop .rail::before { top: 8px; }
+.sp-tl li.stop.off .rail::before { top: 0; bottom: auto; height: 8px; }
+.sp-tl li.stop .rail::after { content: ""; position: absolute; left: 0; top: 3px; width: 8px; height: 8px; background: var(--text); border: 2px solid var(--sky); }
+.sp-tl li.walk .rail::before, .sp-tl li.change .rail::before { background: repeating-linear-gradient(var(--faint) 0 3px, transparent 3px 7px); width: 4px; left: 4px; }
+.sp-tl .tx { padding-bottom: 8px; min-width: 0; }
+.sp-tl .s { color: var(--faint); font-size: .8rem; }
+.sp-tl .lbadge { font-size: .95rem; padding: 0 4px; }
+.sp-go { color: var(--leaf); }
+/* Co si vzít s sebou (src/vzit.js): A the sticker on the corner of the journey bar (.sl-stk), B the line in the box of
+   the card, C the icon on the walk of the time line; the words in the colour of the thing (all 4.5:1 on the box) */
+.vzit-ico { display: inline-grid; place-items: center; line-height: 0; }
+.vzit-ico svg { display: block; }
+.sl-main { position: relative; }
+.sl-stk { position: absolute; z-index: 2; top: -12px; left: -12px; padding: 2px; background: var(--box); border: 2px solid var(--amber); box-shadow: 2px 2px 0 rgba(0, 0, 0, .4); transform: rotate(-9deg); pointer-events: none; }
+.sl-main.has-wx :is(.sl-pasek, .sl-lista) .sl-st { padding-left: 14px; }
+.sl-main.has-wx .sl-big { padding-top: 13px; }
+@media (max-width: 640px) { .sl-stk { left: -6px; } } /* (the bar is 10 px from the edge of the screen) */
+.sp-wx { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: center; border-top: 2px dashed var(--rim); padding-top: 6px; }
+.wx-wet b, .sp-wet.wx-wet { color: #6fc0ef; }
+.wx-cold b, .sp-wet.wx-cold { color: #a8d5ff; }
+.wx-sun b, .sp-wet.wx-sun { color: var(--amber); }
+.wx-warn b, .sp-wet.wx-warn { color: #ffb07a; }
+.sp-wet { font-weight: 700; }
+.sp-tl .rail .sp-tl-wx { position: absolute; left: -15px; top: 50%; transform: translateY(-50%) rotate(-8deg); z-index: 1; }
+.sp-tl li.end .rail::after { content: ""; position: absolute; left: 0; top: 3px; width: 8px; height: 8px; border: 2px solid var(--sky); background: var(--leaf); }
+.sp-tl li.end.goal .rail::after { background: var(--brick); }
+.sp-tl li.end .tm { color: var(--faint); font-weight: 400; }
+/* a phone with a journey picked: the form folds into one bar, the other journeys go; "Upravit" opens it all again */
+.sp-bar { display: none; align-items: center; gap: 8px; }
+.sp-bar-t { flex: 1; min-width: 0; font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel.sp-compact .sp-bar { display: flex; }
+.panel.sp-compact :is(.sp-ends, .sp-sug, .sp-when, .sp-note, .sp-more) { display: none; }
+.panel.sp-compact .sp-opts li:not(.sel) { display: none; }
+.panel.sp-compact .sp-opt { padding: 4px 8px; }
+.panel.sp-compact > .quick { display: none; }
+/* "Vybrat v mapě": the pin in a field; while the click in the map is awaited, one line instead of the form (a phone
+   needs the map, and the state is plain to see) */
+.sp-field.aim { border-color: var(--amber); } /* (this end waits for a click in the map, also without the caret) */
+.sp-pick { all: unset; box-sizing: border-box; flex: none; width: 36px; height: 34px; margin-right: -8px; display: grid; place-items: center; cursor: pointer; color: var(--faint); }
+.sp-pick:hover { color: var(--text); }
+.sp-pick:focus-visible { color: var(--text); outline: 2px solid var(--leaf); outline-offset: -2px; }
+.sp-pick .px-ico { width: 16px; height: 16px; }
+.sp-pickbar { display: none; align-items: center; gap: 8px; background: var(--box-in); border: 2px solid var(--leaf); padding: 4px 4px 4px 10px; }
+.panel.sp-picking .sp-pickbar { display: flex; }
+.panel.sp-picking :is(.sp-bar, .sp-ends, .sp-sug, .sp-when, .sp-note, .sp-opts, .sp-more) { display: none; }
+.panel.sp-picking > .quick { display: none; }
+
+.controls .spoj-go { display: grid; place-items: center; color: var(--text); }
+.controls .spoj-go .ico { width: 22px !important; height: 22px !important; } /* (16 x 16 pixels: the wave of the dots needs the room) */
+@media (max-width: 640px) {
+  .controls > .spoj-go { display: grid; }
+  /* (one square more at the right end of the row: the tiles left of it 50 px narrower together) */
+  :root:has(#spojGo) { --hudw: calc((100vw - 20px - 50px - 50px - 12px - 76px) / 2); }
+  :root:has(#spojGo) .has-dop #dopTile { width: calc(100vw - 146px - 6px - 186px); }
+  :root:has(#spojGo) .top-min.has-zpr.has-dop #dopTile { width: calc(100vw - 10px - 6px - 186px); }
+  /* the bottom bar folded: the square over my position, out of the way of the journey bar left of them */
+  .tabs-min .controls { flex-direction: column; }
+}
+@media (min-width: 641px) and (max-height: 500px) { .controls .spoj-go { order: 1; } } /* (my position is last there: the square just before it) */
+.layers label .lnote { color: var(--faint); font-size: .72rem; margin-left: 4px; } /* ("ilustrace": the animated cars and people are not real, audit 2026-11-15) */
+
+/* ------------------------------------------------------------------ Moje (src/moje.js)
+   the star in the head of a card: as big as the beacon beside it, lit when the thing is kept */
+.card-act .fav-btn { width: 34px; padding: 0; }
+.sp-fav { margin-left: auto; display: flex; } /* (the star of a journey, at the end of the row Teď / Odjezd v / Příjezd do) */
+.sp-fav .fav-btn { width: 34px; min-height: 28px; padding: 0; }
+@media (max-width: 640px) { .sp-fav .fav-btn { width: 44px; min-height: 36px; } }
+.fav-btn .px-ico { width: 18px !important; height: 18px !important; color: var(--faint); flex: 0 0 auto; }
+.fav-btn[aria-pressed="true"] { background: var(--box-in); border-color: var(--amber); }
+.fav-btn[aria-pressed="true"] .px-ico { color: var(--amber); }
+/* the tab Moje before Více (there only with the part "moje"): five tabs in the row instead of four. (:where keeps the
+   weight of a plain .tabs, so the bar folded into its corner button, .tabs-min .tabs, still wins) */
+.tabs:where(:has([data-tab="moje"])) { grid-template-columns: repeat(5, 1fr); }
+/* the tab Moje: the button that keeps the view of the map, then the list: the name (a click opens it), ✎ and × */
+#pane-moje .pane-head h2 { margin-right: auto; } /* (the name left, "+ Uložit tento pohled" and × together on the right) */
+.moje-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.moje-list:empty { display: none; }
+.moje-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 2px; align-items: center; }
+/* the tags (štítky): "#" in a row opens them under it; the list in blocks under its tags; the search of the list */
+.moje-groups { display: grid; gap: 6px; }
+.moje-groups:empty { display: none; }
+.mj-group > summary small { color: var(--faint); }
+.mj-tagbtn { font-family: var(--font-text); font-weight: 700; font-size: .9rem; }
+.mj-tagbtn.on { color: var(--amber); }
+.mj-tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 2px 6px 8px 30px; }
+.mj-tagnew { flex: 1 1 110px; min-width: 0; box-sizing: border-box; min-height: 28px; padding: 3px 6px; background: var(--box-in); color: var(--text); border: 2px solid var(--rim); font: inherit; font-size: max(16px, .85rem); }
+.mj-tagnew::placeholder { color: var(--faint); }
+.mj-tagnew:focus-visible { outline: 2px solid var(--leaf); outline-offset: 0; }
+.mj-open { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 0 8px; align-items: center; padding: 5px 6px; }
+.mj-open:hover, .mj-open:focus-visible { background: var(--box-in); outline: 1px solid var(--rim); }
+.mj-open .px-ico { width: 16px !important; height: 16px !important; color: var(--amber); grid-row: 1 / span 2; }
+.mj-open .mj-n { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mj-open small { grid-column: 2; color: var(--faint); font-size: .72rem; }
+.mj-btn { all: unset; box-sizing: border-box; cursor: pointer; width: 30px; height: 30px; display: grid; place-items: center; color: var(--faint); font-size: 1rem; }
+.mj-btn:hover, .mj-btn:focus-visible { color: var(--text); background: var(--box-in); outline: 1px solid var(--rim); }
+.mj-name { box-sizing: border-box; width: 100%; min-width: 0; padding: 5px 6px; background: var(--box-in); color: var(--text); border: 2px solid var(--amber); font: inherit; font-size: max(16px, .9rem); }
+/* a connection to keep, in the card of a stop: the button (and the ones kept from here), then the form */
+.spoj-new { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.spoj-form { box-sizing: border-box; width: 100%; display: grid; gap: 6px; padding: 8px; background: var(--box-in); border: 2px solid var(--rim); }
+.spoj-form h3 { margin: 0; font-family: var(--font-text); font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--leaf); }
+.spoj-form .livenote { margin: 0; }
+.sf-row { display: grid; grid-template-columns: 2.6em minmax(0, 1fr); gap: 6px; align-items: center; font-size: .84rem; }
+.spoj-form input { box-sizing: border-box; min-width: 0; min-height: 36px; padding: 5px 8px; background: var(--box); color: var(--text); border: 2px solid var(--rim); font: inherit; font-size: max(16px, .9rem); }
+.spoj-form input[type="search"] { width: 100%; }
+.sf-times { display: flex; align-items: center; gap: 6px; }
+.sf-days { display: flex; gap: 3px; }
+.sf-days { flex-wrap: nowrap; }
+.sf-days .pbtn { flex: 1 1 0; min-width: 0; padding: 3px 0; }
+.sf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; max-height: 200px; overflow: auto; }
+.sf-list:empty { display: none; }
+.sf-list button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; padding: 5px 8px; display: grid; gap: 1px; font-size: .86rem; }
+.sf-list button:hover, .sf-list button:focus-visible { background: var(--box); outline: 1px solid var(--rim); }
+.sf-list small { color: var(--faint); font-size: .72rem; }
+.sf-btns { display: flex; justify-content: flex-end; gap: 6px; }
+/* "můj spoj": the ride box in green; small (the name, when the next ride leaves, ×) until it is opened */
+.spoj-box { border-color: var(--leaf); }
+.spoj-box .rb-stops li.sel { box-shadow: inset 3px 0 0 var(--amber); padding-left: 6px; }
+.spoj-box .rb-stops .lbadge { font-size: .9rem; padding: 1px 5px; }
+.spoj-box.compact { grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; align-items: center; }
+.spoj-box.compact .rb-title { grid-column: 1; grid-row: 1; }
+.spoj-box.compact .rb-delay { grid-column: 1; grid-row: 2; }
+.spoj-box.compact .rb-stops { display: none; }
+.spoj-box.compact .rb-btns { grid-column: 2; grid-row: 1 / span 2; }
+body:has(#rideBox:not([hidden])) .spoj-box { display: none; }
+@media (max-width: 640px) {
+  .card-act .fav-btn { width: 44px; }
+  .tabs:where(:has([data-tab="moje"])) { grid-template-columns: repeat(5, 1fr) 44px; }
+  .mj-btn { width: 40px; height: 40px; }
+  .mj-open { padding: 8px 6px; }
+  body:has(#spojBox:not([hidden])) .brand { display: none; } /* (the box takes that corner, like the ride box) */
+  body:has(#card:not([hidden])) .spoj-box .rb-delay { display: block; } /* (the ride box drops its delay beside an open card; here that line is the message) */
+  /* opened: what the next ride does on a line of its own (the ride box keeps it beside its button, too narrow for this) */
+  .spoj-box:not(.compact) .rb-delay { grid-row: 2; grid-column: 1 / -1; }
+  .spoj-box:not(.compact) .rb-stops { grid-row: 3; }
+  .spoj-box:not(.compact) .rb-btns { grid-row: 4; grid-column: 1 / -1; }
+}
+@media (min-width: 641px) and (max-height: 500px) {
+  .card-act .fav-btn { width: 44px; }
+}
+
+
+@media (min-width: 641px) {
+  .tabs { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .tabs .tab { font-size: .64rem; padding-left: 0; padding-right: 0; }
+  .qrow { display: none; }
+  .panel.spoj-mode > .search, body.pane-open .panel > .search, body.pane-open .panel > .spoj, body.panel-shut .panel > .search, body.panel-shut .panel > .spoj { display: none; }
+  .sig-panel, .intro-panel { display: none; }
+  .panel.spoj-mode > .quick, body.pane-open .panel > .quick, body.panel-shut .panel > .quick { display: none; }
+  .pane-close { display: none; }
+  .sig-more, .intro-more { display: block; }
+}
+@media (max-width: 640px) {
+  .tab-mode { display: none; }
+  .tabs .tab[data-tab="look"] { order: -1; } /* (the bar of a phone keeps its order, Vzhled first; the row of a computer has it before Moje) */
+}
+
+/* iPhone: a field you type in with letters under 16 px makes Safari zoom the page in when it gets the caret, and Safari
+   does not zoom back out when the keyboard goes (the panel then sticks out past the right edge). On a touch screen every
+   such field has 16 px at least (Spojení, Moje, the forms of the cards had 14 px). */
+@media (pointer: coarse) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=button]):not([type=submit]):not([type=reset]):not([type=file]),
+  select, textarea { font-size: max(16px, 1rem) !important; }
+}
+
+@media (max-width: 640px) {
+  body:not(.pane-open):has(.panel.spoj-mode:not(.sp-compact):not(.sp-picking)) .panel {
+    max-height: calc(100% - var(--from-top) - 64px - env(safe-area-inset-bottom, 0px) - 8px); overflow-y: auto; overscroll-behavior: contain;
+  }
+  body:not(.pane-open):has(.panel.spoj-mode:not(.sp-compact):not(.sp-picking)) :is(.qbar, .qt-menu, .sl-wrap, .ride-box, .fc-tile, .evt-tile, .clock, .controls, .look-chip, .install-tip) { display: none; }
+}
+
+.sp-pop { --tone: #6f9be0; position: fixed; z-index: 9; left: 50%; top: 40%; transform: translate(-50%, -50%);
+  box-sizing: border-box; width: min(360px, calc(100vw - 2 * var(--pad))); max-height: calc(100% - 2 * var(--pad)); overflow: auto;
+  display: grid; gap: 10px; padding: 12px 14px 14px; background: var(--box); border: var(--rim-line); border-top: 5px solid var(--tone); box-shadow: var(--drop); }
+.sp-pop[hidden] { display: none; }
+.sp-pop.tone-go { --tone: var(--amber); } .sp-pop.tone-ride { --tone: var(--leaf); } .sp-pop.tone-miss { --tone: #d8342c; } .sp-pop.tone-done { --tone: var(--rim); }
+.sp-pop-h { display: flex; align-items: flex-start; gap: 10px; }
+.sp-pop-t { flex: 1; min-width: 0; margin: 2px 0 0; font-family: var(--font-pixel); font-weight: 400; font-size: 1.55rem; line-height: 1.1; color: var(--text); }
+.sp-pop.tone-miss .sp-pop-t { color: #ff6a5f; }
+.sp-pop-x { flex: none; width: 36px; height: 36px; padding: 0; }
+.sp-pop-tx { margin: 0; font-size: .95rem; line-height: 1.45; }
+.sp-pop-tx .lbadge { vertical-align: 1px; }
+.sp-pop-b { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-pop-b .pbtn { flex: 1 1 0; min-width: 120px; min-height: 48px; font-size: 1rem; }
+.sp-pop-b .pbtn.yes { background: #2c5a2a; border-color: var(--leaf); }
+
+/* the card of a journey: on board, not "ujelo" (src/spojeni.js rodeOf) */
+.sp-count.on { color: var(--leaf); font-size: 1.25rem; }
+.sp-tl li.past .rail::before { opacity: .3; }
+.sp-tl li.past .rail::after { opacity: .45; }
+.sp-tl li.past .tx, .sp-tl li.past .tm { opacity: .6; }
+.sp-tl li.now .tm { color: var(--amber); }
+.sp-tl li.now .rail::before { -webkit-mask: linear-gradient(to bottom, rgba(0, 0, 0, .3) calc(var(--p, 0) * 100%), #000 calc(var(--p, 0) * 100%)); mask: linear-gradient(to bottom, rgba(0, 0, 0, .3) calc(var(--p, 0) * 100%), #000 calc(var(--p, 0) * 100%)); }
+.sp-here { position: absolute; z-index: 2; left: -3px; width: 14px; height: 14px; box-sizing: border-box; transform: translateY(-50%); background: var(--amber); border: 2px solid #141a26; box-shadow: 0 0 0 2px var(--amber); pointer-events: none; }
+.sp-here::after { content: ""; position: absolute; inset: -7px; border: 2px solid var(--amber); animation: sp-here 1.6s ease-out infinite; }
+.sp-here.miss { background: #ff6a5f; box-shadow: 0 0 0 2px #ff6a5f; } .sp-here.miss::after { border-color: #ff6a5f; }
+@keyframes sp-here { from { opacity: .9; transform: scale(.6); } to { opacity: 0; transform: scale(1.4); } }
+@media (prefers-reduced-motion: reduce) { .sp-here::after { animation: none; opacity: 0; } }
+.sp-tl li.now:is(.ride, .walk, .change) .rail { min-height: 64px; } /* (the row one is in: room for the mark to move) */
+.sp-here::before { content: "teď"; position: absolute; right: calc(100% + 9px); top: 50%; transform: translateY(-50%); color: var(--amber); font-family: var(--font-pixel); font-size: .95rem; line-height: 1; }
+.sp-here.pt::before { content: none; }

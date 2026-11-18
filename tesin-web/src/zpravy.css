@@ -1,0 +1,144 @@
+/* Zprávy (Dnes v Brně): the board with the running headline in the top row and the list under it (src/zpravy.js) */
+/* (the board looks like the tiles beside it; pressed, with its list open, it turns orange like them) */
+.zpr-tile { width: 500px; gap: 8px; padding: 4px 6px 4px 10px; font-size: 1.05rem; letter-spacing: .02em; }
+/* (the sign of the board: an i in a ring, news; red and blinking while something is new) */
+.zpr-tile .zd { flex: none; width: 18px; height: 18px; color: var(--amber); }
+.zpr-tile .zd svg { display: block; width: 18px !important; height: 18px !important; }
+.zpr-tile.fresh .zd { color: #ff6a4d; }
+.zpr-tile .zr { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-align: left; line-height: 1.3; }
+.zpr-tile .zr span { display: inline-block; }
+.zpr-tile .zn b { font-weight: 400; }
+.zpr-tile .zn { flex: none; font-style: normal; font-family: var(--font-text); font-weight: 700; font-size: .9rem; line-height: 1.25; background: #a8452c; color: var(--text); padding: 0 6px; border: 1px solid var(--brick-lit, #e27a5c); }
+.zpr-tile .zn:empty { display: none; }
+.zpr-tile[aria-pressed="true"] .zn { background: var(--sky); border-color: var(--sky); }
+.zpr-tile[aria-pressed="true"] .zd { color: var(--text); }
+@media (prefers-reduced-motion: no-preference) {
+  .zpr-tile .zr span { padding-left: 100%; animation: zpr-run 30s linear infinite; }
+  .zpr-tile:hover .zr span, .zpr-tile:focus-visible .zr span { animation-play-state: paused; }
+  .zpr-tile.fresh .zd { animation: zpr-blink 1.4s steps(2, jump-none) infinite; }
+  @keyframes zpr-run { to { transform: translateX(-100%); } }
+  @keyframes zpr-blink { 50% { opacity: .3; } }
+}
+/* (no motion wanted: the first headlines stand still, cut at the edge) */
+@media (prefers-reduced-motion: reduce) { .zpr-tile .zr { text-overflow: ellipsis; } }
+/* the board stands in for Aktuálně and Události (their lists stay, opened from the list of the news) */
+.has-zpr #aktToggle, .has-zpr #evtToggle { display: none; }
+.has-zpr #zprTile { order: 0; }
+:root { --hudl: calc(max(16px, env(safe-area-inset-left, 0px)) + var(--pw, 408px) + 12px); --hudr: 428px; }
+body.folded { --hudl: 240px; }
+@media (min-width: 641px) and (max-width: 1300px) and (min-height: 501px) {
+  body:not(.folded) { --hudr: 236px; }
+  body:not(.folded) .hud-top > #dopTile, body:not(.folded) .hud-top > #fcTile { padding: 4px 8px; }
+  body:not(.folded) .hud-top > #dopTile .l, body:not(.folded) .hud-top > #dopTile .sp, body:not(.folded) .hud-top > #fcTile .l { display: none; }
+}
+@media (min-width: 641px) and (max-width: 1000px) and (min-height: 501px) {
+  body.folded { --hudr: 236px; }
+  body.folded .hud-top > #dopTile, body.folded .hud-top > #fcTile { padding: 4px 8px; }
+  body.folded .hud-top > #dopTile .l, body.folded .hud-top > #dopTile .sp, body.folded .hud-top > #fcTile .l { display: none; }
+}
+@media (min-width: 641px) and (min-height: 501px) {
+  .zpr-tile { width: clamp(100px, calc(100vw - var(--hudl) - max(16px, env(safe-area-inset-right, 0px)) - var(--hudr)), 500px); }
+}
+@media (min-width: 641px) and (max-width: 820px) and (min-height: 501px) {
+  /* (under ~790 px beside the open panel even 100 px do not fit: the panel stays on top and covers the start of the row) */
+  body:not(.folded) .panel { z-index: 4; }
+}
+@media (min-width: 641px) and (max-width: 900px) and (min-height: 501px) {
+  /* a narrow board (a tablet upright beside the open panel): as on a phone, the number alone and the dot only while
+     something is new, so the running text keeps its room */
+  body:not(.folded) #zprTile .zn span, body:not(.folded) #zprTile:not(.fresh) .zd { display: none; }
+  body:not(.folded) #zprTile { gap: 6px; padding-left: 8px; }
+}
+
+@media (min-width: 641px) and (max-height: 500px) { .zpr-tile { width: 170px; font-size: 1rem; } }
+@media (max-width: 640px) {
+  /* upright phone, the row above the bottom bar: the board takes the place of Události and Aktuálně */
+  #zprTile { left: 10px; width: calc(2 * var(--hudw) + 6px); justify-content: flex-start; padding: 0 4px 0 8px; font-size: 1rem; }
+  .has-dop #zprTile { width: 130px; }
+  #zprTile .zn { font-size: .8rem; padding: 0 4px; }
+  #zprTile .zn span, #zprTile:not(.fresh) .zd { display: none; } /* (little room: the number alone, the dot only while something is new) */
+  #zprTile { gap: 6px; }
+}
+
+/* the list */
+.events.zpravy { width: min(372px, calc(100vw - 32px)); }
+@media (max-width: 640px) { .events.zpravy { width: auto; } }
+.zpr-lead { margin: 0; font-family: var(--font-pixel); font-size: 1.25rem; line-height: 1.12; }
+.zpr-lead b { font-weight: 400; color: var(--amber); }
+.zpr-h { margin: 6px 0 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-family: var(--font-text); font-weight: 700; font-size: .95rem; letter-spacing: .08em; text-transform: uppercase; }
+.zpr-h small { font-family: var(--font-text); font-size: .72rem; letter-spacing: 0; text-transform: none; color: var(--faint); }
+.zpr-h.t-now { color: #ff8f73; }
+.zpr-h.t-today { color: var(--amber); }
+.zpr-h.t-week { color: var(--leaf); }
+.zpr-h.t-past { color: var(--faint); }
+.zpr-h.t-past + .zpr-list li.s-end { outline: none; }
+.zpr-rest { justify-self: start; }
+.zpr-none { margin: 0; color: var(--faint); font-size: .84rem; }
+.zpr-also { margin: 6px 0 2px; color: var(--faint); font-size: .78rem; }
+.zpr-h.t-now ~ .zpr-list.zpr-quiet li { background: none; }
+.zpr-list.zpr-quiet .zt b { font-weight: 400; color: var(--faint); }
+.zpr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.zpr-list li > button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 5px 6px; }
+.zpr-list li > button:hover, .zpr-list li > button:focus-visible { background: var(--box-in); }
+.zpr-list li > button:focus-visible { outline: 2px solid var(--leaf); outline-offset: -2px; }
+.zpr-h.t-now + .zpr-list li { background: var(--box-in); }
+.zpr-list .zi { display: block; }
+.zpr-list .zt { display: grid; gap: 1px; min-width: 0; }
+.zpr-list .zt b { font-size: .875rem; line-height: 1.25; }
+.zpr-list .zt small { font-size: .78rem; line-height: 1.3; color: var(--faint); overflow-wrap: anywhere; }
+.zpr-list .zm { font-family: var(--font-pixel); font-size: 1rem; color: var(--amber); white-space: nowrap; }
+.zpr-list li.s-new .zm { background: #a8452c; color: var(--text); padding: 0 6px; border: 1px solid var(--brick-lit, #e27a5c); font-size: .9rem; }
+.zpr-list li.s-end { background: none !important; outline: 2px dashed var(--rim); outline-offset: -2px; }
+.zpr-list li.s-end .zt b { font-weight: 400; }
+.zpr-list li.s-end .zt b, .zpr-list li.s-end .zm { color: var(--faint); }
+.zpr-list li.on { background: var(--box-in); box-shadow: inset 0 0 0 2px var(--amber); }
+.zpr-list .btns { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 6px 8px 44px; }
+.zpr-list .btns a.pbtn { text-decoration: none; display: inline-grid; place-items: center; }
+.zpr-list .btns .pbtn[aria-pressed="true"] { background: #a8452c; border-color: var(--brick-lit, #e27a5c); }
+.zpr-more { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; }
+.zpr-more a.pbtn { text-decoration: none; display: inline-flex; align-items: center; } /* (Celý přehled Brna: a link to prehled.html) */
+@media (max-width: 640px) { .zpr-list li > button { min-height: 44px; padding: 6px; } }
+@media (max-width: 640px) {
+  /* upright phone with the top bar folded to ☰: the board sits at the top beside the button, between the button and the name
+     of the map (Brno2000.cz keeps its corner); it stays there
+     when the bottom bar is folded too. With the top bar open the board keeps its place in the row above the bottom bar. */
+  .top-min.has-zpr #zprTile {
+    display: flex; top: calc(env(safe-area-inset-top, 0px) + 16px); bottom: auto; height: 44px; opacity: 1; font-size: 1.1rem; gap: 8px; padding: 0 6px 0 10px;
+    left: calc(max(16px, env(safe-area-inset-left, 0px)) + 44px + 8px); right: calc(max(14px, env(safe-area-inset-right, 0px)) + min(41.5vw, 166px) + 8px); width: auto; /* (up to the name of the map: its width follows its letters, 9.6vw up to 2.4rem) */
+  }
+  .top-min.has-zpr #zprTile:not(.fresh) .zd { display: block; }
+  body.top-min:has(#rideBox:not([hidden])) #zprTile, body.top-min:has(.alertbar:not([hidden])) #zprTile { display: none; } /* (a ride or a weather warning takes the top) */
+  .top-min.has-zpr.has-dop #dopTile { left: 10px; width: calc(100vw - 10px - 6px - 136px); } /* (Doprava takes the room the board left in the bottom row) */
+}
+@media (min-width: 641px) and (max-height: 500px) {
+  /* a phone lying on its side: the board is the last tile of the top row, in the top right (beside the column of the
+     theme tiles); with the controls folded to the corner the row is hidden but the board stays, alone, at the edge */
+  .has-zpr #zprTile { order: 9; width: 33.3vw; } /* (a third of the width of the screen) */
+  .tabs-min.has-zpr .hud-top { display: flex; right: max(12px, env(safe-area-inset-right, 0px)); }
+  .tabs-min.has-zpr .hud-top > :not(#zprTile) { display: none; }
+}
+/* the way back to the news in an overview opened from them (the weather, Doprava, the lists of Události) */
+.zpr-back { flex: none; align-self: flex-start; }
+@media (min-width: 641px) and (max-width: 760px) and (max-height: 500px) {
+  /* a small phone on its side: the row must end before the name of the map, so Doprava goes without its little chart */
+  .has-zpr .dop-tile .sp { display: none; }
+  .has-zpr #zprTile { width: calc(33.3vw - 14px); }
+}
+/* the two tabs of the list: today / the coming days */
+.zpr-tabs { display: flex; gap: 6px; }
+.zpr-tabs .pbtn[aria-pressed="true"] { background: var(--brick-on); border-color: var(--brick-lit, #e27a5c); }
+
+/* MHD dnes jinak: the lines that run differently today, rows of line numbers (the buttons of the stop card, .lbtn);
+   a click highlights the line in the map, the chosen one says below what it is about */
+.zpr-h.t-mhd { color: #93c96a; }
+.zpr-linky { display: grid; gap: 6px; }
+.zl-row { display: grid; gap: 3px; }
+.zl-lab { font-size: .78rem; line-height: 1.3; color: var(--faint); }
+.zl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.zl-more { justify-self: start; } /* (what has lasted longer than a week, folded) */
+.zl-sel { display: grid; gap: 5px; justify-items: start; padding: 6px; background: var(--box-in); box-shadow: inset 0 0 0 2px var(--amber); }
+.zl-sel b { font-size: .875rem; }
+.zl-sel .pbtn[aria-pressed="true"] { background: #a8452c; border-color: var(--brick-lit, #e27a5c); }
+.zl-note { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; font-size: .82rem; line-height: 1.3; padding: 4px 6px; background: rgba(240, 138, 60, .15); border: 2px solid #f08a3c; }
+.zl-note:hover, .zl-note:focus-visible { background: rgba(240, 138, 60, .3); }
+.zl-note:focus-visible { outline: 2px solid var(--leaf); outline-offset: 1px; }

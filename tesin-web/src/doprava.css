@@ -1,0 +1,114 @@
+/* Doprava: the tile beside the weather and the overview in the weather's pop-up (src/doprava.js) */
+.dop-tile .i { display: grid; place-items: center; }
+.dop-tile .i svg { display: block; }
+.dop-tile .sp { display: block; width: 64px; height: 20px; flex: 0 1 64px; min-width: 24px; background: var(--box-in); border: 1px solid var(--rim); }
+.dop-tile .sp svg { display: block; width: 100%; height: 100%; }
+.dop-tile .n { font-family: var(--font-pixel); font-weight: 400; font-size: 1.05rem; line-height: 1.15; padding: 0 5px; color: #161d2b; min-width: 1.6em; text-align: center; }
+.dop-tile[aria-expanded="true"] .sp { border-color: var(--brick-lit, #e27a5c); }
+/* the order from the right: weather, Doprava, Aktuálně, Události (only while the tile is there) */
+.has-dop #evtToggle { order: 1; }
+.has-dop #aktToggle { order: 2; }
+.has-dop #dopTile { order: 3; }
+.has-dop #fcTile { order: 4; }
+@media (max-width: 640px) {
+  /* upright phone, the row above the bottom bar: Události as icon + count, Aktuálně a square, Doprava the rest,
+     the weather and my position as before */
+  .has-dop #evtToggle { left: 10px; width: 74px; }
+  .has-dop #evtToggle .l, .has-dop .akt-tile .l { display: none; }
+  .has-dop .akt-tile { left: 90px; width: 50px; }
+  .has-dop #dopTile { left: 146px; width: calc(100vw - 146px - 6px - 136px); gap: 4px; padding: 0 5px; }
+  .has-dop #dopTile .sp { flex: 1 1 auto; }
+}
+@media (max-width: 380px) { .has-dop #dopTile .sp { display: none; } } /* (a narrow phone: the gauge and the number only) */
+@media (min-width: 641px) and (max-height: 500px) { .dop-tile .sp { width: 46px; flex-basis: 46px; } }
+@media (prefers-reduced-motion: no-preference) {
+  .dop-tile .now, .dop-chart .now { animation: dop-blink 1.6s steps(2, jump-none) infinite; }
+  @keyframes dop-blink { 50% { opacity: .35; } }
+}
+
+/* the overview */
+.fc-pop.dop { width: min(392px, calc(100vw - 32px)); }
+@media (max-width: 640px) { .fc-pop.dop { width: auto; } }
+#fcPopBody .dop-none { color: var(--faint); margin: 0; }
+.dop-hero { display: grid; grid-template-columns: 132px 1fr; gap: 12px; align-items: center; }
+.dop-verdict { display: grid; gap: 4px; min-width: 0; }
+.dop-verdict p { margin: 0; font-size: .82rem; line-height: 1.35; }
+.dop-big { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-pixel); }
+.dop-big b { font-weight: 400; font-size: 3rem; line-height: .85; }
+.dop-big span { font-size: 1.5rem; }
+.dop-subs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.dop-subs div { background: var(--box-in); border: 1px solid var(--rim); padding: 3px 6px; display: grid; }
+.dop-subs small { color: var(--faint); font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; }
+.dop-subs b { font-family: var(--font-pixel); font-weight: 400; font-size: 1.25rem; line-height: 1; }
+.dop-onmap { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 4px; align-items: center; }
+.dop-onmap > span { font-size: .72rem; color: var(--faint); }
+.dop-onmap button { display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; border: 2px solid var(--rim); background: var(--box-in); color: var(--text); font: inherit; font-size: .72rem; padding: 4px 3px; box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); min-width: 0; white-space: nowrap; overflow: hidden; }
+.dop-onmap button:hover, .dop-onmap button:focus-visible { border-color: var(--amber); }
+.dop-onmap button[aria-pressed="true"] { border-color: var(--amber); background: var(--rim); }
+.dop-b { display: grid; gap: 6px; border-top: 1px dashed var(--rim); padding-top: 9px; }
+.dop-bh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.dop-bh h3 { margin: 0; font-family: var(--font-pixel); font-weight: 400; font-size: 1.08rem; display: flex; gap: 6px; align-items: center; }
+.dop-bh > span { color: var(--faint); font-size: .72rem; text-align: right; }
+.dop-chart { width: 100%; height: auto; display: block; }
+.dop-chart .ax { fill: var(--faint); font-size: 9px; font-family: var(--font-text); }
+.dop-chart .lb { fill: var(--text); font-size: 10px; font-weight: 700; font-family: var(--font-text); }
+.dop-roads { display: grid; grid-template-columns: 118px 1fr; gap: 10px; align-items: center; }
+.dop-zones { display: grid; gap: 3px; font-size: .78rem; }
+.dop-zones div { display: flex; justify-content: space-between; gap: 6px; }
+.dop-zones b { font-variant-numeric: tabular-nums; }
+.dop-b .mut, .dop-zones .mut { color: var(--faint); }
+.dop-seg { display: inline-flex; border: 2px solid var(--rim); }
+.dop-seg button { border: 0; background: var(--box-in); padding: 1px 8px; font: inherit; font-size: .72rem; cursor: pointer; color: var(--faint); }
+.dop-seg button[aria-pressed="true"] { background: var(--rim); color: var(--text); }
+.dop-rank { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.dop-rank button { width: 100%; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 50px; gap: 6px; align-items: center; padding: 4px; background: var(--box-in); border: 1px solid transparent; color: var(--text); font: inherit; font-size: .8rem; text-align: left; cursor: pointer; }
+.dop-rank button:hover, .dop-rank button:focus-visible { border-color: var(--rim); }
+.dop-rank .n { font-family: var(--font-pixel); font-size: 1rem; color: var(--faint); text-align: right; }
+.dop-rank .st { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dop-rank .st small { color: var(--faint); margin-left: 5px; font-size: .68rem; }
+.dop-rank .v { font-variant-numeric: tabular-nums; font-size: .74rem; text-align: right; white-space: nowrap; }
+.dop-rank .bar { height: 8px; background: var(--rim); position: relative; }
+.dop-rank .bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--c); }
+.dop-mhd { display: grid; gap: 4px; }
+.dop-mrow { display: grid; grid-template-columns: 22px 74px minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: .78rem; }
+.dop-mrow .nm { display: grid; line-height: 1.1; }
+.dop-mrow .nm small { color: var(--faint); font-size: .66rem; }
+.dop-mrow .dots { display: grid; grid-template-columns: repeat(20, 1fr); gap: 1px; }
+.dop-mrow .dots i { aspect-ratio: 1; background: var(--rim); }
+.dop-mrow .lines { display: flex; gap: 3px; }
+.dop-mrow .ln { font-family: var(--font-text); font-weight: 700; font-size: .9rem; line-height: 1.05; padding: 0 4px; background: var(--text); color: var(--sky); white-space: nowrap; }
+.dop-mrow .ln small { font-family: var(--font-text); font-size: .62rem; margin-left: 2px; color: #d8362a; font-weight: 700; }
+.dop-small { margin: 0; font-size: .72rem; }
+.dop-parks { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; align-items: end; }
+.dop-parks .park { display: grid; gap: 2px; justify-items: center; font: inherit; font-size: .6rem; color: var(--faint); text-align: center; line-height: 1.05; min-width: 0; background: none; border: 0; padding: 2px 0; cursor: pointer; overflow-wrap: anywhere; }
+.dop-parks .park:hover .th, .dop-parks .park:focus-visible .th { border-color: var(--amber); }
+.dop-parks .th { width: 14px; height: 44px; border: 2px solid var(--rim); background: var(--box-in); position: relative; }
+.dop-parks .th::after { content: ""; position: absolute; inset: auto 0 0 0; height: var(--h); background: var(--c); }
+.dop-parks .pr .th { border-style: dashed; }
+/* closed for now: an empty grey gauge crossed out */
+.dop-parks .out .th { border-color: var(--faint); opacity: .7; background: linear-gradient(to top right, transparent calc(50% - 1px), var(--faint) calc(50% - 1px), var(--faint) calc(50% + 1px), transparent calc(50% + 1px)), linear-gradient(to top left, transparent calc(50% - 1px), var(--faint) calc(50% - 1px), var(--faint) calc(50% + 1px), transparent calc(50% + 1px)), var(--box-in); }
+.dop-parks b { color: var(--text); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.dop-extra { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.dop-extra div { background: var(--box-in); padding: 4px 5px; display: grid; gap: 1px; font-size: .66rem; color: var(--faint); line-height: 1.15; }
+.dop-extra b { font-family: var(--font-pixel); font-weight: 400; font-size: 1.25rem; color: var(--text); line-height: 1; }
+.dop-nd { margin: 0; color: var(--faint); font-size: .78rem; }
+.dop-foot { margin: 0; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .68rem; color: var(--faint); border-top: 1px solid var(--rim); padding-top: 6px; }
+@media (max-width: 380px) { .dop-parks { grid-template-columns: repeat(4, 1fr); } .dop-extra { grid-template-columns: repeat(2, 1fr); } }
+/* the "?" of a block and its explanation */
+.dop-q { display: inline-grid; place-items: center; width: 17px; height: 17px; padding: 0; margin-left: 6px; border: 1px solid var(--rim); background: var(--box-in); color: var(--faint); font: 700 .7rem/1 var(--font-text); cursor: pointer; vertical-align: middle; flex: none; }
+.dop-q:hover, .dop-q:focus-visible, .dop-q[aria-expanded="true"] { color: var(--text); border-color: var(--amber); }
+.dop-big .dop-q { align-self: center; }
+.dop-onmap > span { white-space: nowrap; display: inline-flex; align-items: center; }
+.dop-onmap > span .dop-q { margin-left: 3px; }
+.dop-help { margin: 0; padding: 6px 8px; background: var(--box-in); border-left: 3px solid var(--amber); font-size: .76rem; line-height: 1.4; color: var(--text); }
+/* the course of a place over the last 24 hours, under its row (doprava.js histSvg) */
+.dop-rank li.open > button { border-color: var(--rim); }
+.dop-hist { padding: 4px 4px 6px; background: var(--box-in); border: 1px solid var(--rim); border-top: 0; }
+.dop-hsvg { display: block; width: 100%; height: 64px; }
+.dop-hsvg text { fill: #c9cfbf; font-size: 9px; }
+.dop-hist p { margin: 3px 0 0; font-size: .7rem; }
+/* the same chart in the card of a jam clicked in the map */
+.dop-card .dop-hist { border-top: 1px solid var(--rim); }
+.dop-card .dop-hist .mut { color: var(--faint); }
+
+.dop-clean { margin: 0 0 6px; font-size: .86rem; line-height: 1.4; }

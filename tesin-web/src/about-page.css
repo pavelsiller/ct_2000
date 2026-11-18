@@ -1,0 +1,26 @@
+@import './fonts.css';
+/* the page /o-mape: the same text as "Jak to vzniklo" in the map, on its own */
+:root { --sky: #161d2b; --box: #1e2739; --rim: #384563; --text: #f0f2ea; --faint: #adb6c6; --brick: #c9583b; --leaf: #93c96a; --font-pixel: "Jersey 15", "Courier New", monospace; --font-text: "Atkinson Hyperlegible", system-ui, sans-serif; color-scheme: dark; }
+body { margin: 0; background: var(--sky); color: var(--text); font: 16px/1.55 var(--font-text); }
+.about-page { max-width: 680px; margin: 0 auto; padding: 28px 18px 48px; }
+.about-page h1 { font-family: var(--font-pixel); font-weight: 500; font-size: 1.9rem; line-height: 1.1; margin: 14px 0 18px; }
+.about-page h1 span { color: var(--brick); }
+.about-page .about { background: var(--box); border: 2px solid var(--rim); box-shadow: 4px 4px 0 rgba(0, 0, 0, .35); padding: 16px 18px; }
+.about-page .about p { margin: 0 0 12px; color: var(--faint); }
+.about-page .about .author, .about-page .about strong { color: var(--text); }
+.about-page a { color: var(--text); }
+.about-page .back { font-family: var(--font-text); font-weight: 700; color: var(--leaf); text-decoration: none; }
+.about-page .links { margin-top: 18px; color: var(--faint); }
+.author-block { display: flow-root; margin-bottom: 14px; }
+.author-block .author-id { float: left; width: 120px; margin: 2px 18px 4px 0; display: grid; gap: 2px; text-align: center; text-decoration: none; color: var(--text); }
+.author-block .avatar { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; margin-bottom: 6px; }
+.author-block .author-name { font-family: var(--font-pixel); font-weight: 500; font-size: 1.25rem; line-height: 1.1; }
+.author-block .author-role { font-size: .8rem; line-height: 1.35; color: var(--faint); }
+.author-block .author-id:hover .avatar, .author-block .author-id:focus-visible .avatar { filter: brightness(1.12); }
+.author-block .author-id:hover .author-name, .author-block .author-id:focus-visible .author-name { text-decoration: underline; }
+@media (max-width: 640px) { .author-block .author-id { width: 100px; margin-right: 12px; } }
+.author-block p { margin: 0 !important; color: var(--text) !important; }
+.about .fine { font-size: .8rem; }
+/* the button "Licence a autorství": the page has no .pbtn of the map, so its look is written out here */
+.about-page a.lic-link { display: inline-grid; place-items: center; box-sizing: border-box; min-height: 36px; padding: 6px 12px; background: #171f2e; border: 2px solid var(--rim); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); font-family: var(--font-text); font-weight: 700; font-size: .95rem; text-decoration: none; }
+.about-page a.lic-link:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(0, 0, 0, .35); }

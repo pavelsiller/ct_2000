@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brno 2000 – živá pixelová mapa Brna plná zajímavostí</title>
+<meta name="description" content="Projdi Brno dům po domu a najdi sochy, které denně míjíš. Šaliny jezdí naživo, výkopy i počasí jsou aktuální. Z otevřených dat, zdarma a bez registrace.">
+<meta name="author" content="Mirek Kubásek">
+<meta property="og:title" content="Brno jako ve hře z 90. let">
+<meta property="og:description" content="Celé město jako na dlani: šaliny naživo, aktuální výkopy a počasí. Vše z otevřených dat.">
+<meta property="og:image" content="%OGIMAGE%">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Brno 2000: pixelová mapa centra Brna s Petrovem, šalinami, stavbami, uzavírkami a akcemi">
+<meta property="og:site_name" content="Brno 2000">
+<!--#ogurl-->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Brno jako ve hře z 90. let">
+<meta name="twitter:description" content="Celé město jako na dlani: šaliny naživo, aktuální výkopy a počasí. Vše z otevřených dat.">
+<meta name="twitter:image" content="%OGIMAGE%">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Brno 2000","alternateName":"Izometrické Brno","description":"Projdi Brno dům po domu a najdi sochy, které denně míjíš. Šaliny jezdí naživo, výkopy i počasí jsou aktuální. Z otevřených dat, zdarma a bez registrace.","url":"%SITE%","applicationCategory":"TravelApplication","operatingSystem":"Web","inLanguage":"cs","isAccessibleForFree":true,"author":{"@type":"Person","name":"Mirek Kubásek"}}
+</script>
+<meta property="og:type" content="website">
+<meta property="og:locale" content="cs_CZ">
+<link rel="icon" href="%BASE%favicon.ico?v=%ICONV%" sizes="32x32">
+<link rel="icon" href="%BASE%favicon.svg?v=%ICONV%" type="image/svg+xml">
+<link rel="apple-touch-icon" href="%BASE%apple-touch-icon.png?v=%ICONV%">
+<link rel="mask-icon" href="%BASE%safari-pinned-tab.svg?v=%ICONV%" color="#c9583b">
+<link rel="manifest" href="%BASE%manifest.webmanifest?v=%ICONV%">
+<meta name="theme-color" content="#161d2b">
+<meta name="application-name" content="Brno 2000">
+<meta name="apple-mobile-web-app-title" content="Brno 2000">
+<!--#preconnect-->
+<!--#oldkeys-->
+<link rel="stylesheet" href="/src/style.css">
+<!--#stats-->
+</head>
+<body>
+<script>
+// Before the first paint: the folded bars as left last time ('1' folded, '' open; a phone that has not chosen yet starts
+// with the menu folded into ☰: upright the top bar, on its side the panel), and the controls unseen (body.booting, see
+// style.css) until src/main.js has built them and shows them at once, so nothing jumps or blinks while the page starts.
+(function () {
+  var c = document.body.classList, top = null, tabs = null;
+  c.add('booting');
+  try { top = localStorage.getItem('b2k-top-min'); tabs = localStorage.getItem('b2k-tabs-min'); } catch (e) { /* private mode */ }
+  // Kontrastní zobrazení (the ◐ button beside ?, src/main.js): set before the first paint. With no choice made in this
+  // browser, the wish of the system for more contrast decides.
+  var hc = null;
+  try { hc = localStorage.getItem('b2k-kontrast'); } catch (e) { /* private mode */ }
+  if (hc === '1' || (hc === null && matchMedia('(prefers-contrast: more)').matches)) document.documentElement.setAttribute('data-kontrast', '');
+  var phone = matchMedia('(max-width: 640px)').matches, land = matchMedia('(min-width: 641px) and (max-height: 500px)').matches;
+  if (top === '1' || (top === null && (phone || land))) c.add('top-min');
+  if (tabs === '1') c.add('tabs-min');
+  if (land && c.contains('top-min')) c.add('folded');
+  setTimeout(function () { c.remove('booting'); }, 6000); // (should main.js fail, the controls show anyway)
+  // the logo in the corner does not wait for the map, only for its own pixel font (so it does not blink in the stand-in
+  // letters); asking for the font here also starts its download before main.js runs
+  if (document.fonts && document.fonts.load) document.fonts.load('2rem "Jersey 15"', 'Brno2000.cz').then(function () { c.add('brand-ready'); }, function () {});
+  // a browser too old for the map (no <dialog>, no CSS inset, no ?. and ??=: before iOS 15.4 / Chrome 103 / Firefox 104) is
+  // told so, in place of "Načítám Brno…" standing there for ever
+  var ok = true;
+  try { new Function('var a = {}; a?.b; a.c ??= 1;'); } catch (e) { ok = false; }
+  if (ok && !(window.HTMLDialogElement && window.CSS && CSS.supports && CSS.supports('inset: 0'))) ok = false;
+  if (!ok) document.addEventListener('DOMContentLoaded', function () {
+    var l = document.getElementById('loading');
+    if (l) l.innerHTML = '<p class="old-browser">Mapa potřebuje novější prohlížeč (iOS 15.4+, Chrome 103+, Firefox 104+).<br>Zkuste aktualizovat systém nebo prohlížeč.</p>';
+  });
+})();
+</script>
+
+<div id="map" role="main" aria-label="Izometrická pixel-art mapa Brna" class="far">
+  <div id="viewer"></div>
+  <canvas id="mapOver"></canvas>
+  <div id="pins"></div>
+</div>
+<!-- while the map loads: the logo of the site (the stripes of the city colours and 2000, as the favicon, white stripes on the
+     night) above the words; inline, so it is there with the first paint -->
+<div class="loading" id="loading"><svg class="loading-logo" viewBox="0 0 16 16" width="96" height="96" aria-hidden="true" shape-rendering="crispEdges"><path fill="#fff" d="M3 0h10v1h-10zM3 3h10v1h-10zM3 4h10v1h-10z"/><path fill="#c8102e" d="M3 1h10v1h-10zM3 2h10v1h-10zM3 5h10v1h-10zM3 6h10v1h-10zM4 7h8v1h-8zM5 8h6v1h-6zM6 9h4v1h-4z"/><path fill="#c9583b" d="M1 11h1v1h-1zM2 11h1v1h-1zM3 11h1v1h-1zM3 12h1v1h-1zM1 13h1v1h-1zM2 13h1v1h-1zM3 13h1v1h-1zM1 14h1v1h-1zM1 15h1v1h-1zM2 15h1v1h-1zM3 15h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM5 12h1v1h-1zM7 12h1v1h-1zM5 13h1v1h-1zM7 13h1v1h-1zM5 14h1v1h-1zM7 14h1v1h-1zM5 15h1v1h-1zM6 15h1v1h-1zM7 15h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM9 12h1v1h-1zM11 12h1v1h-1zM9 13h1v1h-1zM11 13h1v1h-1zM9 14h1v1h-1zM11 14h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM13 12h1v1h-1zM15 12h1v1h-1zM13 13h1v1h-1zM15 13h1v1h-1zM13 14h1v1h-1zM15 14h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1z"/></svg><span>Načítám Brno…</span></div>
+
+<!-- folded, the ☰ button in the top left corner (as the folded top bar of an upright phone) that brings the panel back;
+     open, the panel is closed by the × in its head (the old arrow at its edge is hidden then) -->
+<button class="tuck" id="tuck" type="button" aria-controls="panel" aria-expanded="true" aria-label="Zasunout panel" title="Zasunout panel"><span class="tuck-arrow" aria-hidden="true">‹</span><svg class="ico px-ico tuck-ham" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M1 2h10v2H1zM1 5h10v2H1zM1 8h10v2H1z"/></svg></button>
+<!-- The panel: always visible the name, the main buttons and search; below it four tabs, each opens one pane
+     (on phones the tabs are a bar at the bottom and a pane slides up above it). The most used things are
+     one click away, the rest two clicks, the technical things in "Více". -->
+<aside class="panel" id="panel" aria-label="Ovládání mapy">
+  <button class="pbtn bar-max" id="topMax" type="button" aria-label="Ukázat horní lištu" title="Ukázat horní lištu (hledání)"><svg class="ico px-ico" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M1 2h10v2H1zM1 5h10v2H1zM1 8h10v2H1z"/></svg></button>
+  <div class="head">
+    <h1>Brno<span>2000</span><small class="tld">.cz</small><span class="vh">, živá pixelová mapa Brna</span></h1>
+    <div class="head-tools">
+      <button class="pbtn sq-btn share-top" type="button" id="shareTop" aria-label="Sdílet tento pohled" title="Sdílet tento pohled"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/><path d="M8 10H5v11h14V10h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></button>
+      <button class="pbtn sq-btn share-top" type="button" id="mSnap" aria-label="Snímek tohoto pohledu" title="Snímek tohoto pohledu" aria-haspopup="dialog" aria-expanded="false" data-px="snap"></button>
+      <button class="pbtn sq-btn kontrast-btn" type="button" aria-pressed="false" aria-label="Kontrastní zobrazení" title="Kontrastní zobrazení: černé pozadí, bílý text, silné linky a větší písmo" data-px="contrast">◐</button>
+      <button class="pbtn sq-btn" id="help" type="button" aria-label="Nápověda a o mapě" title="Nápověda a o mapě">?</button>
+      <button class="pbtn sq-btn close panel-close" id="panelClose" type="button" aria-controls="panel" aria-label="Zasunout panel" title="Zasunout panel">×</button>
+      <button class="pbtn sq-btn bar-min" id="topMin" type="button" aria-label="Schovat horní lištu do rohu" title="Schovat lištu do rohu"><svg class="ico px-ico fold-ico" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h7v2H0zM0 0h2v7H0zM5 5h5v2H5zM5 5h2v5H5zM7 7h2v2H7zM8 8h2v2H8zM9 9h2v2H9zM10 10h2v2h-2z"/></svg></button>
+    </div>
+  </div>
+
+  <!-- the row of the panel, right under its head: on a computer everything the panel can show is one of its buttons
+       and only one of those things stands under the row at a time (src/main.js setTab, paintModes); a phone has the
+       panes as the bar at the bottom of the screen, wherever the row stands here -->
+  <nav class="tabs" id="tabs" aria-label="Nabídka">
+    <button class="tab tab-mode" type="button" id="tabFind" aria-pressed="true" title="Hledat ulici, adresu nebo místo"><span class="ti" aria-hidden="true" data-px="find"></span>Hledat</button>
+    <button class="tab tab-mode" type="button" id="tabSpoj" data-pub="spojeni" aria-pressed="false" title="Spojení MHD: odkud a kam"><span class="ti" aria-hidden="true"></span>Spojení</button>
+    <button class="tab" type="button" data-tab="layers" aria-expanded="false" aria-controls="pane-layers"><span class="ti" aria-hidden="true" data-px="layers">▦</span>Vrstvy</button>
+    <button class="tab" type="button" data-tab="explore" aria-expanded="false" aria-controls="pane-explore"><span class="ti" aria-hidden="true" data-px="star">★</span>Objevuj</button>
+    <button class="tab" type="button" data-tab="look" aria-expanded="false" aria-controls="pane-look"><span class="ti" aria-hidden="true" data-px="sun">☀</span>Vzhled</button>
+    <button class="tab" type="button" data-tab="moje" data-pub="moje" aria-expanded="false" aria-controls="pane-moje" title="Moje: uložená místa, zastávky a spoje"><span class="ti" aria-hidden="true" data-px="user">☺</span>Moje</button>
+    <button class="tab" type="button" data-tab="more" aria-expanded="false" aria-controls="pane-more"><span class="ti" aria-hidden="true" data-px="more">⋯</span>Více</button>
+    <button class="tab bar-min" id="tabsMin" type="button" aria-label="Schovat spodní lištu do rohu" title="Schovat lištu do rohu"><span class="ti" aria-hidden="true"><svg class="ico px-ico fold-ico" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M5 10h7v2H5zM10 5h2v7h-2zM2 5h5v2H2zM5 2h2v5H5zM0 0h2v2H0zM1 1h2v2H1zM2 2h2v2H2zM3 3h2v2H3z"/></svg></span></button>
+    <button class="tab bar-max" id="tabsMax" type="button" aria-label="Ukázat nabídku a nastavení" title="Ukázat nabídku"><span class="ti" aria-hidden="true"><svg class="ico px-ico" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M5 0h2v2H5zM1 1h2v1H1zM9 1h2v1H9zM1 2h10v1H1zM2 3h3v1H2zM7 3h3v1H7zM2 4h2v1H2zM8 4h2v1H8zM0 5h4v2H0zM8 5h4v2H8zM2 7h2v1H2zM8 7h2v1H8zM2 8h3v1H2zM7 8h3v1H7zM1 9h10v1H1zM1 10h2v1H1zM9 10h2v1H9zM5 10h2v2H5z"/></svg></span></button>
+  </nav>
+
+  <div class="search">
+    <!-- Spojení (src/spojeni.js): the switch between the search and the journey planner -->
+    <!-- the row above the search field of a phone: the switch of the search, and Kontrastní zobrazení at its right end
+         (a phone has no room for a fifth button in the head; a computer has the button beside ?) -->
+    <div class="qrow">
+      <div class="qmode" data-pub="spojeni" role="group" aria-label="Co hledat">
+        <button class="pbtn small" type="button" id="qmFind" aria-pressed="true">Hledat</button>
+        <button class="pbtn small" type="button" id="qmSpoj" aria-pressed="false" title="Spojení MHD ze zastávky na zastávku, i s přestupy">⇄ Spojení</button>
+      </div>
+      <button class="pbtn small kontrast-btn" type="button" aria-pressed="false" aria-label="Kontrastní zobrazení" title="Kontrastní zobrazení: černé pozadí, bílý text, silné linky a větší písmo" data-px="contrast">◐</button>
+    </div>
+    <label class="label vh" for="q">Hledat</label>
+    <input id="q" type="search" placeholder="Hledat ulici, adresu nebo místo" autocomplete="off">
+    <ul class="results" id="results" aria-label="Výsledky hledání"></ul>
+    <p class="noresults" id="noResults" role="status" hidden></p>
+  </div>
+  <div class="spoj" id="spoj" data-pub="spojeni" hidden aria-label="Spojení"></div>
+
+  <div class="quick">
+    <!-- how the map came to be and who made it (the places and stories that stood beside it are in Objevuj now) -->
+    <details class="about qd">
+      <summary>Kdo za aplikací stojí</summary>
+      <div class="qd-body">
+<!--#about-->
+      </div>
+    </details>
+  </div>
+
+  <!-- Vzhled: how the map looks -->
+  <div class="pane" id="pane-look" hidden>
+    <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+    <div class="pane-head"><h2>Vzhled mapy</h2><button class="pbtn close pane-close" type="button" aria-label="Zavřít">×</button></div>
+    <div class="sheet-body">
+    <!-- On top: what the map shows now (season, time of day, weather) and whether that is Brno right now; under it one
+         button: from "now" it sets a sunny summer day (summer, noon, clear), from anything else it brings "now" back.
+         The two checkboxes and the slider are the state the code keeps (src/main.js), not shown. -->
+    <p class="livenote klidnote" id="klidLookNote" data-pub="klid" hidden>Klidná mapa je vždy jasný den bez ročního období, denní doby a počasí. Vzhled se vrátí, až ji vypnete ve Vrstvách.</p>
+    <div class="lookrow">
+      <p class="lookstate" id="lookNote" role="status"><span class="ls-what" id="lookWhat"></span><span class="ls-why" id="lookWhy"></span></p>
+      <button class="pbtn looknow" type="button" id="lookNowBtn" data-mode="summer">☀ Letní slunečný den</button>
+    </div>
+    <input type="checkbox" id="clockLive" checked hidden><input type="checkbox" id="liveWeather" checked hidden><input id="night" type="range" min="0" max="100" value="0" hidden>
+    <div>
+      <p class="label" id="seasonsLbl">Roční období</p>
+      <div class="row4" id="seasons" role="group" aria-labelledby="seasonsLbl">
+        <button class="pbtn" type="button" data-s="spring" aria-pressed="false">Jaro</button>
+        <button class="pbtn" type="button" data-s="summer" aria-pressed="true">Léto</button>
+        <button class="pbtn" type="button" data-s="autumn" aria-pressed="false">Podzim</button>
+        <button class="pbtn" type="button" data-s="winter" aria-pressed="false">Zima</button>
+      </div>
+    </div>
+    <div>
+      <p class="label" id="timesLbl">Denní doba</p>
+      <div class="row4" id="times" role="group" aria-labelledby="timesLbl">
+        <button class="pbtn" type="button" data-n="30" aria-pressed="false">Ráno</button>
+        <button class="pbtn" type="button" data-n="0" aria-pressed="true">Poledne</button>
+        <button class="pbtn" type="button" data-n="55" aria-pressed="false">Večer</button>
+        <button class="pbtn" type="button" data-n="100" aria-pressed="false">Noc</button>
+      </div>
+    </div>
+    <div>
+      <p class="label" id="weatherLbl">Počasí</p>
+      <div class="row4" id="weather" role="group" aria-labelledby="weatherLbl">
+        <button class="pbtn" type="button" data-w="clear" aria-pressed="false">Jasno</button>
+        <button class="pbtn" type="button" data-w="rain" aria-pressed="false">Déšť</button>
+        <button class="pbtn" type="button" data-w="snow" disabled title="Sníh jen na podzim a v zimě" aria-pressed="false">Sníh</button>
+        <button class="pbtn" type="button" data-w="fog" aria-pressed="false">Mlha</button>
+      </div>
+      <p class="livenote" id="weatherLiveNote" hidden></p>
+      <button class="livenote weathernow" id="weatherNow" type="button" hidden title="Otevřít předpověď počasí pro Brno"></button>
+    </div>
+    </div>
+  </div>
+
+  <!-- Vrstvy: what is drawn over the map. Fold-out sections, each with a count of what is on in it
+       (the open ones are remembered in this browser). "Akce" stands alone at the top: it is a thing of its own,
+       not a kind of layer. The small things of the city (pítka, WC, stín, koše, vyhlídky, koupaliště) are
+       commented out for now: only the památné stromy stay until the next phase decides what to do with them. -->
+  <div class="pane" id="pane-layers" hidden>
+    <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+    <div class="pane-head"><h2>Vrstvy</h2><button class="pbtn close pane-close" type="button" aria-label="Zavřít">×</button></div>
+    <div class="sheet-body">
+    <div class="roles" id="roles" role="group" aria-label="Vrstvy podle toho, kdo jste">
+      <p class="roles-h" aria-hidden="true">Pro koho</p>
+      <div class="roles-grid" id="rolesGrid"></div>
+    </div>
+    <div class="lfind" id="lfind" role="search">
+      <label class="vh" for="lfQ">Hledat vrstvu</label>
+      <div class="lfind-box">
+        <input id="lfQ" type="search" placeholder="Hledat vrstvu, třeba hasiči" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+        <button class="lfind-x" id="lfX" type="button" aria-label="Zrušit hledání a ukázat všechny vrstvy" title="Zrušit hledání a ukázat všechny vrstvy" hidden>×</button>
+      </div>
+      <button class="pbtn small" id="lfOn" type="button" aria-pressed="false" title="Ukáže jen vrstvy, které jsou právě zapnuté">Jen zapnuté</button>
+    </div>
+    <p class="lfind-info" id="lfInfo" role="status" hidden></p>
+    <!-- The sections follow the quick tiles at the edge of the map one to one (src/quick.js): the small tile in each heading
+         is the same switch with the same level dots. The first section is the look of the map itself, no tile. -->
+    <details class="lsec" data-sec="map" open>
+      <summary><span>Mapa</span><i class="cnt"></i></summary>
+      <div class="layers">
+        <label data-pub="klid" title="Šedé nízké domy bez oken a barev, bílé ulice: vrstvy (MHD, stavby, uzavírky, akce) na ní vyniknou"><input type="checkbox" id="lay-klid"> Klidná mapa <small class="lnote">vrstvy vyniknou</small></label>
+        <label><input type="checkbox" id="lay-labels" checked> Popisky čtvrtí a ulic</label>
+        <label title="Budova, na kterou při větším přiblížení ukážete myší, se zvýrazní"><input type="checkbox" id="lay-hover" checked> Zvýraznit budovy</label>
+        <label title="Ilustrační animace: auta nejsou skutečná vozidla, jen oživují ulice. Skutečné jsou kolony, nehody a uzavírky v tématu Doprava (hlášení z Waze, data města)."><input type="checkbox" id="lay-traffic" checked> Provoz aut <small class="lnote">ilustrace</small></label>
+        <label title="Ilustrační animace: při větším přiblížení lidé chodí po chodnících, čekají na zastávkách a nastupují do MHD; kolik jich je, odhaduje mapa podle denní doby a počasí, nejsou to skuteční lidé ani jejich polohy"><input type="checkbox" id="lay-people" checked> Lidé na ulicích <small class="lnote">ilustrace</small></label>
+      </div>
+    </details>
+
+    <details class="lsec" data-sec="mhd" open>
+      <summary><span>MHD</span><i class="cnt"></i></summary>
+      <div class="layers">
+        <label title="Tramvaje, trolejbusy a autobusy s číslem linky a zpožděním"><input type="checkbox" id="lay-mhd" checked> Vozidla</label>
+        <label title="Značky zastávek; klepnutím odjezdy"><input type="checkbox" id="lay-mhdStops" checked> Zastávky</label>
+        <label title="Výluky a odklony IDS JMK platné právě teď (oranžový vykřičník)"><input type="checkbox" id="lay-mhdOutages"> Výluky a odklony</label>
+        <label data-pub="vlaky" title="Nádraží v Brně: klepnutím na značku tabule odjezdů a příjezdů vlaků podle jízdního řádu; vlaky linek S a R, které jsou právě na cestě, hlásí i zpoždění"><input type="checkbox" id="lay-vlaky" checked> Nádraží a vlaky</label>
+      </div>
+      <div class="row2 mhdmode" id="mhdMode">
+        <button class="pbtn" type="button" data-m="live" aria-pressed="true" title="Skutečné polohy vozidel ze živého proudu KORDIS JMK (otevřená data města Brna)">MHD živě</button>
+        <button class="pbtn" type="button" data-m="plan" aria-pressed="false" title="Vozidla podle platného jízdního řádu IDS JMK">Podle jízdního řádu</button>
+      </div>
+      <p class="livenote" id="mhdNow"></p>
+    </details>
+
+    <details class="lsec" data-sec="doprava" open>
+      <summary><span>Doprava, nehody</span><i class="cnt"></i></summary>
+      <div class="layers">
+        <label title="Kolony jako řada aut (červenější = horší), nehody a překážky z Waze"><input type="checkbox" id="lay-jams" checked> Kolony a nehody</label>
+        <label data-pub="hasici" title="Kam za posledních 12 hodin vyjeli hasiči (HZS Jihomoravského kraje): značka podle druhu zásahu, probíhající zásah bliká a při přiblížení u něj stojí hasičské auto"><input type="checkbox" id="lay-hasici" checked> Výjezdy hasičů</label>
+        <label data-pub="policie" title="Vloupání, krádeže a násilí jednoho týdne z otevřených dat Policie ČR (obnovováno denně; týden končí před třemi dny, poslední dny policie doplňuje později): značka podle druhu stojí uprostřed oblasti policie, ne na přesném místě, číslo říká, kolik případů v oblasti bylo"><input type="checkbox" id="lay-policie"> Policie: případy týdne</label>
+        <label data-pub="voda" title="Havárie vodovodu a odstávky vody Brněnských vodáren a kanalizací: červená kapka = havárie, modrá = právě bez vody, světle modrá = připravovaná odstávka v příštím týdnu; při přiblížení oblast bez vody a cisterny"><input type="checkbox" id="lay-voda" checked> Voda: havárie a odstávky</label>
+        <label title="Uzavřené ulice: červenobílá páska a zákaz vjezdu (dlouhodobé z OpenStreetMap, živé z Waze)"><input type="checkbox" id="lay-closures" checked> Uzavírky</label>
+        <label title="Výkopy, lešení a zábory chodníků nebo jízdních pruhů, které město povolilo (koordinace výkopových prací), a hlášení národního dopravního centra; kreslí se při přiblížení"><input type="checkbox" id="lay-works" checked> Výkopy a zábory</label>
+        <label data-pub="parking" title="Kolik je právě teď volných míst v parkovacích domech a na parkovištích Brněnských komunikací (otevřená data města): modrá značka P s teploměrem, při přiblížení počet volných míst"><input type="checkbox" id="lay-parking" checked> Parkovací domy</label>
+        <label data-pub="cisteni" title="Blokové čištění ulic (plán Brněnských komunikací, obnovováno jednou denně): modrý pruh podél úseku, kde se čistí; auta, která tam zůstanou, se odtahují. Rozhoduje značení v ulici"><input type="checkbox" id="lay-clean" checked> Blokové čištění</label>
+      </div>
+      <div class="layers sub" id="cleanRange" data-pub="cisteni" role="radiogroup" aria-label="Které termíny blokového čištění ukázat">
+        <p class="sub-h" aria-hidden="true">Blokové čištění: které termíny</p>
+        <label title="Úseky, které se čistí dnes nebo zítra"><input type="radio" name="clr" value="d" checked> Dnes a zítra</label>
+        <label title="Úseky, které se čistí do sedmi dnů"><input type="radio" name="clr" value="w"> Do týdne</label>
+        <label title="Úseky, které se čistí do měsíce"><input type="radio" name="clr" value="m"> Do měsíce</label>
+        <label title="Všechny termíny, které plán zatím zná"><input type="radio" name="clr" value="a"> Vše</label>
+      </div>
+      <div class="layers sub" id="zasahRange" data-pub="hasici" role="radiogroup" aria-label="Za jakou dobu ukázat výjezdy hasičů a havárie a odstávky vody">
+        <p class="sub-h" aria-hidden="true">Hasiči a voda: za jakou dobu</p>
+        <label title="Probíhající zásahy a ty, které skončily v posledních 12 hodinách"><input type="radio" name="zsr" value="h" checked> Posledních 12 hodin</label>
+        <label title="Všechny výjezdy hasičů, havárie a odstávky vody za posledních 7 dní se značkou ukončeného zásahu (starší bledší) a kolik jich bylo"><input type="radio" name="zsr" value="w"> Za týden</label>
+      </div>
+      <p class="livenote" id="trafficNow" hidden></p>
+      <p class="livenote" id="hasiciNow" data-pub="hasici" hidden></p>
+      <p class="livenote" id="policieNow" data-pub="policie" hidden></p>
+      <p class="livenote" id="vodaNow" data-pub="voda" hidden></p>
+      <p class="livenote" id="parkingNow" data-pub="parking" hidden></p>
+      <p class="livenote" id="cleanNow" data-pub="cisteni" hidden></p>
+    </details>
+
+    <!-- Zoo Brno has no switch any more: it is always drawn (state.layers.zoo stays true in main.js).
+    <label title="Zoo Brno na Mniší hoře: cesty pro návštěvníky, výběhy a velká zvířata, která se přes den procházejí a v noci polehávají"><input type="checkbox" id="lay-zoo" checked> Zoo Brno</label>
+    -->
+
+    <details class="lsec" data-sec="build">
+      <summary><span>Stavby</span><i class="cnt"></i></summary>
+      <div class="layers one">
+        <label title="Křížově šrafovaná plocha s jeřábem: stavba, která právě probíhá"><input type="checkbox" id="lay-building" checked> <span><span class="lg hatch"></span> Probíhající výstavba</span></label>
+        <label title="Žlutý obrys: plánovaný projekt města nebo veřejné instituce"><input type="checkbox" id="lay-planCity"> <span><span class="lg plan-city"></span> Plánované městské a veřejné projekty</span></label>
+        <label title="Modrý obrys: plánovaný soukromý projekt"><input type="checkbox" id="lay-planPrivate"> <span><span class="lg plan-priv"></span> Plánované soukromé projekty (byty, kanceláře)</span></label>
+        <label title="Žlutá čára: Velký městský okruh (plná hotový, čárkovaná plánovaný úsek); fialová s tečkami: plánovaná tramvaj"><input type="checkbox" id="lay-bigplans"> <span><span class="lg2"><span class="lg vmo"></span><span class="lg tram-plan"></span></span> Velké dopravní záměry (žlutá okruh, fialová nové tramvaje)</span></label>
+      </div>
+      <p class="livenote">Stavby a záměry z mapy města Brno Brzo a webu Co bude, Brno?, staveniště z OpenStreetMap, okruh a plánované tramvaje z otevřených dat města (data.brno.cz). Návrhy participativního rozpočtu z otevřených dat města a z webu <a href="https://damenavas.brno.cz/" target="_blank" rel="noopener">Dáme na vás</a>.</p>
+    </details>
+
+    <details class="lsec" data-sec="akce">
+      <summary><span>Akce</span><i class="cnt"></i></summary>
+      <div class="layers one">
+        <label title="Akce GO TO BRNO: kalendářní lístek na místě, kde se sejdou lidé (seznam je pod tlačítkem Události)"><input type="checkbox" id="lay-events" checked> Akce ve městě</label>
+        <label title="Akce, které běží dnes"><input type="checkbox" name="evp" value="t" checked> Dnes</label>
+        <label title="Akce, které začnou v příštích sedmi dnech"><input type="checkbox" name="evp" value="w"> Tento týden</label>
+        <label title="Akce, které začnou později než za týden"><input type="checkbox" name="evp" value="l"> Později</label>
+      </div>
+    </details>
+
+    <details class="lsec" data-sec="mista">
+      <summary><span>Místa</span><i class="cnt"></i></summary>
+      <div class="layers">
+        <label><input type="checkbox" id="lay-smArt" checked> Sochy, pomníky a kašny</label>
+        <label><input type="checkbox" id="lay-smTree" checked> <span><span class="lg tree"></span> Památné stromy</span></label>
+        <label><input type="checkbox" id="lay-smCross" checked> Kříže a boží muka</label>
+        <label><input type="checkbox" id="lay-smPlaque" checked> Pamětní desky</label>
+        <label data-pub="kameny" title="Mosazné kameny v dlažbě před domy lidí pronásledovaných nacisty (kamenyzmizelychbrno.cz), od přiblížení 0,3 m/px"><input type="checkbox" id="lay-smStolper" checked> <span><span class="lg stolper"><svg viewBox="0 0 18 12" width="18" height="12" aria-hidden="true"><polygon points="9,0 18,5 18,8 9,12 0,8 0,5" fill="#161d2b"/><polygon points="1,5.5 9,9.5 9,11 1,7.5" fill="#8a6420"/><polygon points="9,9.5 17,5.5 17,7.5 9,11" fill="#a87a26"/><polygon points="9,1 17,5.5 9,9.5 1,5.5" fill="#d9a93a"/><polygon points="9,1 17,5.5 15,5.5 9,2" fill="#f6dc8a"/></svg></span> Kameny zmizelých</span></label>
+        <label title="Názvy s tečkou na místě: z dálky hlavní místa Brna, po přiblížení i další místa s článkem na Wikipedii, místa GO TO BRNO a zblízka velké projekty města"><input type="checkbox" id="lay-names"> Názvy zajímavých míst</label>
+        <label title="Zlatě obtažené střechy budov, které jsou kulturní památkou, padesát nejbližších ke středu mapy: posunem mapy se ukážou další (štítek je vždy i v kartě budovy)"><input type="checkbox" id="lay-monuments"> Kulturní památky</label>
+      </div>
+    </details>
+
+    <details class="lsec" data-sec="senzory">
+      <summary><span>Senzory</span><i class="cnt"></i></summary>
+      <div class="layers">
+        <label title="Webkamery ve městě; po výběru kamery žlutá výseč ukáže její záběr"><input type="checkbox" id="lay-cams" checked> Webkamery</label>
+        <label title="Meteostanice s aktuální teplotou"><input type="checkbox" id="lay-meteo" checked> Meteostanice</label>
+        <label title="Stanice kvality ovzduší ČHMÚ: světlo ukazuje stav (dobrá, přijatelná, zhoršená, špatná); při zhoršeném ovzduší tmavý kruh a název látky"><input type="checkbox" id="lay-air" checked> Kvalita ovzduší</label>
+      </div>
+    </details>
+
+    <details class="lsec" data-sec="foto" data-pub="pano">
+      <summary><span>Fotky z ulice</span><i class="cnt"></i></summary>
+      <div class="layers one">
+        <label title="Fotky ulic od dobrovolníků (Panoramax, CC BY-SA 4.0): při větším přiblížení světle modré tečky jednotlivých fotek v ulicích; kliknutím na tečku nebo do ulice se rozhlédnete"><input type="checkbox" id="lay-pano"> Fotky z ulice (Panoramax)</label>
+      </div>
+      <p class="livenote" id="panoNote" hidden></p>
+    </details>
+
+    <!-- Komunity, participace: no theme of the quick tiles, folded away. Dáme na vás (participatory budget) is drawn on
+         its own and highlighted from Aktuálně -->
+    <details class="lsec" data-sec="komunity">
+      <summary><span>Komunity, participace</span><i class="cnt"></i></summary>
+      <div class="layers one">
+        <label title="Návrhy participativního rozpočtu města Brna: cedulka v barvě kategorie na místě návrhu, v kartě text, rozpočet a průběžné hlasy"><input type="checkbox" id="lay-paro" checked> <span><span class="lg paro">✓</span> <span id="paroLabel">Dáme na vás: návrhy participativního rozpočtu</span></span></label>
+      </div>
+      <button class="pbtn small paro-city" type="button" id="paroCity" hidden>Návrhy pro celé Brno</button>
+    </details>
+
+    <details class="lsec" data-sec="datamap" data-pub="datamap">
+      <summary><span>Datové mapy</span><i class="cnt"></i></summary>
+      <div class="dm-master">
+        <span class="dm-master-t">Najednou jde zapnout jen jedna datová mapa</span>
+        <label class="dm-off" title="Vypne datovou mapu, ať je zapnutá kterákoli z těch níže"><input type="radio" name="dm" value="" checked> Vypnuto</label>
+      </div>
+      <div class="layers">
+        <label title="Celodenní hladina hluku z dopravy Lden podle strategické hlukové mapy 2022: mapa zešedne, střechy a zem dostanou barvu pásma"><input type="radio" name="dm" value="hluk"> Hluk z dopravy</label>
+        <label title="Záplavová území pětileté, dvacetileté a stoleté vody a aktivní zóna, kde se nesmí stavět"><input type="radio" name="dm" value="povoden"> Povodeň</label>
+        <label title="Obyvatelé podle sčítání 2021 na hektar základní sídelní jednotky"><input type="radio" name="dm" value="hustota"> Hustota obyvatel</label>
+        <label title="Typ domu podle průzkumu budov Kanceláře architekta města 2018 až 2020: kde se bydlí, kde se bydlí nad obchodem a co je v domech bez bytů"><input type="radio" name="dm" value="vyuziti"> Co je v domě</label>
+        <label data-pub="kriminalita" title="Vloupání podle otevřených dat Policie ČR: případy za posledních 5 let ročně na km² oblasti policie"><input type="radio" name="dm" value="vloupani"> Vloupání</label>
+        <label data-pub="kriminalita" title="Krádeže bez vloupání (z aut, aut, kol, kapsáři…) podle otevřených dat Policie ČR: případy za posledních 5 let ročně na km²"><input type="radio" name="dm" value="kradeze"> Krádeže</label>
+        <label data-pub="kriminalita" title="Násilná trestná činnost podle otevřených dat Policie ČR: případy za posledních 5 let ročně na km²"><input type="radio" name="dm" value="nasili"> Násilí</label>
+      </div>
+      <div class="layers sub" data-pub="pocitova" role="radiogroup" aria-label="Pocitová mapa Brna 2025: jak Brno vidí lidé">
+        <p class="sub-h" aria-hidden="true">Jak Brno vidí lidé · pocitová mapa 2025</p>
+        <label title="Kde lidé tráví volný čas a kam vodí návštěvy odjinud, podle ankety města 2025"><input type="radio" name="dm" value="oblibena"> Oblíbená místa</label>
+        <label title="Kde se to podle lidí v poslední době proměnilo k lepšímu, podle ankety města 2025"><input type="radio" name="dm" value="lepsi"> Změnilo se k lepšímu</label>
+        <label title="Kde se lidé necítí bezpečně podle ankety města 2025: kolik různých lidí tu dalo bod. V legendě srovnání s kriminalitou podle policie"><input type="radio" name="dm" value="bezpeci"> Necítím se tu bezpečně</label>
+        <label title="Kde se lidem nelíbí a zasloužilo by si to změnu, podle ankety města 2025"><input type="radio" name="dm" value="nelibi"> Nelíbí se mi to</label>
+      </div>
+      <div class="layers sub" data-pub="pocitova" role="radiogroup" aria-label="Srovnání dvou dat: pocitová mapa a kriminalita">
+        <p class="sub-h" aria-hidden="true">Srovnání: pocitová mapa × policie</p>
+        <label title="Strach z ankety proti kriminalitě podle Policie ČR 2016–2025, po oblastech policie: kde se lidé bojí a policie eviduje málo případů, kde obojí a kde je hodně případů, ale skoro nikdo se nebojí"><input type="radio" name="dm" value="strach"> Strach a kriminalita</label>
+      </div>
+      <div class="layers sub" data-pub="nehody" role="radiogroup" aria-label="Dopravní nehody podle Policie ČR">
+        <p class="sub-h" aria-hidden="true">Dopravní nehody · Policie ČR</p>
+        <label title="Kolik dopravních nehod evidovala policie do 40 m od místa za posledních 5 let, i nehody jen s plechovou škodou"><input type="radio" name="dm" value="nehody"> Všechny nehody</label>
+        <label title="Nehody, při kterých byl někdo zraněn nebo zemřel, do 40 m od místa za posledních 10 let"><input type="radio" name="dm" value="zraneni"> Nehody se zraněním</label>
+        <label title="Nehody s chodcem nebo cyklistou do 40 m od místa za posledních 10 let"><input type="radio" name="dm" value="chodci"> Chodci a cyklisté</label>
+      </div>
+      <div id="dmLegend" hidden></div>
+    </details>
+
+
+    <details class="lsec" id="legendBox" data-sec="legend">
+      <summary><span>Legenda: co znamená co</span></summary>
+      <ul class="legend">
+        <li><span class="lg tag-g"></span>Zelená tečka s názvem: místo s článkem na Wikipedii (názvy zapnete v Názvech zajímavých míst)</li>
+        <li><span class="lg tag-b"></span>Modrá tečka s názvem: místo GO TO BRNO</li>
+        <li><span class="lg tag-y"></span>Žlutá tečka s názvem: velký projekt města (zblízka); <span class="lg tag-gold"></span>žlutý kroužek kolem tečky: místo má i projekt města</li>
+        <li><span class="lg hatch"></span>Křížově šrafovaná plocha s jeřábem: probíhající stavba</li>
+        <li><span class="lg plan-city"></span>Žlutý obrys: plánovaný projekt města nebo veřejné instituce · <span class="lg plan-priv"></span>modrý obrys: plánovaný soukromý projekt</li>
+        <li><span class="lg paro">✓</span>Cedulka s fajfkou: návrh participativního rozpočtu Dáme na vás (barva podle kategorie, zlatý roh vítězný projekt)</li>
+        <li><span class="lg vmo"></span>Žlutá čára: Velký městský okruh (plná hotový, čárkovaná plánovaný úsek) · <span class="lg tram-plan"></span>fialová s tečkami: plánovaná tramvaj</li>
+        <li><span class="lg mon"></span>Zlatě obtažená střecha: kulturní památka (vrstva Kulturní památky, ukazuje je kolem středu mapy)</li>
+        <li><span class="lg tram"></span>Tramvaj (červená), trolejbus (zelený), autobus (krémový); nad vozem číslo linky a teploměr zpoždění: <b style="color:#5cc062">včas</b> · <b style="color:#f3c868">1–2 min</b> · <b style="color:#f08a3c">3–5 min</b> · <b style="color:#d8342c">6+ min</b></li>
+        <li><span class="lg stop">Z</span>Zastávka MHD</li>
+        <li><span class="lg pin" style="background:#f08a3c">!</span>Výluka nebo odklon MHD</li>
+        <li><span class="lg jam"></span>Kolona: řada aut, červenější = horší</li>
+        <li data-pub="cisteni"><span class="lg clean"></span>Modrý pruh podél ulice: blokové čištění (sytý dnes, při právě probíhajícím čištění pulzuje; světlejší zítra, tenký a čárkovaný později); u dnešních a zítřejších úseků značka zákazu zastavení; během čištění po úseku jezdí oranžový zametací vůz, chodí zametači v oranžových vestách a občas odtahovka odveze zaparkované auto</li>
+        <li><span class="lg closed"></span>Uzavírka: červenobílá páska a zákaz vjezdu; ⚠ nehoda nebo překážka</li>
+        <li><span class="lg air"></span>Stanice kvality ovzduší ČHMÚ: světlo ukazuje stav <b style="color:#50f0e6">dobrá</b> · <b style="color:#50ccaa">přijatelná</b> · <b style="color:#f0e641">zhoršená</b> · <b style="color:#ff5050">špatná</b>; při zhoršeném ovzduší tmavý kruh a název látky</li>
+        <li><span class="lg cam"></span>Webkamera (po výběru žlutá výseč záběru)</li>
+        <li><span class="lg meteo"></span>Meteostanice s teplotou</li>
+        <li data-pub="pano"><span class="lg pano"></span>Fotky z ulice (Panoramax, při větším přiblížení): bledě modrá linka je nafocená ulice, při dalším přiblížení tečky jednotlivých fotek (plná 360°, prázdná obyčejná fotka); kliknutím do ulice nebo na tečku se rozhlédnete (modrá výseč ukazuje, kam se díváte)</li>
+        <li><span class="lg pin" style="background:#c9e6a0;color:#161d2b">Z</span>Zoo Brno: cesty, výběhy (hnědá čárkovaná) a zvířata; kliknutím na výběh kdo tu bydlí</li>
+        <li><span class="lg pin crowd"><svg viewBox="0 0 43 22" width="43" height="22" aria-hidden="true" shape-rendering="crispEdges" style="display:block"><rect x="8" width="20" height="21" fill="#161d2b"/><rect x="9" y="1" width="18" height="19" fill="#f0f2ea"/><rect x="9" y="1" width="18" height="6" fill="#e58ac9"/><g fill="#161d2b"><rect x="12" y="2" width="2" height="2"/><rect x="17" y="2" width="2" height="2"/><rect x="22" y="2" width="2" height="2"/><rect x="9" y="7" width="18" height="1"/></g><text x="18" y="14.5" fill="#161d2b" font-family="VT323, 'Courier New', monospace" font-size="13" text-anchor="middle" dominant-baseline="middle">7</text><g><rect x="2" y="7" width="2" height="4" fill="#f0c8a0"/><rect x="2" y="7" width="2" height="2" fill="#5a3b22"/><rect x="4" y="7" width="2" height="2" fill="#5a3b22"/><rect x="0" y="11" width="6" height="6" fill="#f3c868"/><rect x="0" y="17" width="2" height="4" fill="#384563"/><rect x="4" y="19" width="2" height="2" fill="#384563"/><rect x="32" y="7" width="2" height="4" fill="#c68642"/><rect x="32" y="7" width="2" height="2" fill="#2b2118"/><rect x="30" y="7" width="2" height="2" fill="#2b2118"/><rect x="30" y="11" width="6" height="6" fill="#5fb3e6"/><rect x="30" y="19" width="2" height="2" fill="#4b3b2a"/><rect x="34" y="17" width="2" height="4" fill="#4b3b2a"/><rect x="39" y="7" width="2" height="4" fill="#e0ac7a"/><rect x="39" y="7" width="2" height="2" fill="#d9c38a"/><rect x="41" y="7" width="2" height="2" fill="#d9c38a"/><rect x="37" y="11" width="6" height="6" fill="#e58ac9"/><rect x="37" y="17" width="2" height="4" fill="#384563"/><rect x="41" y="19" width="2" height="2" fill="#384563"/></g></svg></span>Akce GO TO BRNO tento týden (místo, kde se sejdou lidé)</li>
+        <!-- the small things of the city, until they come back to the map:
+        
+        <li><span class="lg pin" style="background:#7fc8f0">💧</span>Pítko · <span class="lg pin" style="background:#4fa3e0">≈</span>koupaliště · <span class="lg pin" style="background:#f3c868">▲</span>vyhlídka</li>
+        -->
+        <li><span class="lg tree"></span>Památný strom</li>
+        <li data-pub="kameny"><span class="lg stolper"><svg viewBox="0 0 18 12" width="18" height="12" aria-hidden="true"><polygon points="9,0 18,5 18,8 9,12 0,8 0,5" fill="#161d2b"/><polygon points="1,5.5 9,9.5 9,11 1,7.5" fill="#8a6420"/><polygon points="9,9.5 17,5.5 17,7.5 9,11" fill="#a87a26"/><polygon points="9,1 17,5.5 9,9.5 1,5.5" fill="#d9a93a"/><polygon points="9,1 17,5.5 15,5.5 9,2" fill="#f6dc8a"/></svg></span>Kameny zmizelých (Stolpersteine): jedna kostka za každý kámen na místě, u více než čtyř číslo</li>
+        <li><span class="lg clu">+3</span>Seskupené ikony: kliknutím přiblížíte</li>
+      </ul>
+    </details>
+    </div>
+  </div>
+  <!-- Objevuj: routes, places, city projects -->
+  <div class="pane" id="pane-explore" hidden>
+    <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+    <div class="pane-head"><h2>Objevuj Brno</h2><button class="pbtn close pane-close" type="button" aria-label="Zavřít">×</button></div>
+    <div class="sheet-body">
+    <!-- Hledání v Objevuj (src/explorefind.js, loaded with the first use): as in Vrstvy, the rows of the three lists
+         that do not answer the words hide where they are and each row found gets a line that says why. -->
+    <div class="lfind" id="efind" role="search">
+      <label class="vh" for="efQ">Hledat v místech, trasách a projektech</label>
+      <div class="lfind-box">
+        <input id="efQ" type="search" placeholder="Hledat místo, trasu nebo projekt" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+        <button class="lfind-x" id="efX" type="button" aria-label="Zrušit hledání a ukázat celý seznam" title="Zrušit hledání a ukázat celý seznam" hidden>×</button>
+      </div>
+    </div>
+    <p class="lfind-info" id="efInfo" role="status" hidden></p>
+    <!-- Three lists to choose from, one open at a time (the one opened last closes the others): single places with
+         their stories, the themed routes (a flat list: the stops of the chosen route are in its card, not nested here) and the projects of the city.
+         Each heading says how many items the list has. -->
+    <details class="lsec exsec" id="storiesBox" name="explore" open>
+      <summary><span>Místa a příběhy</span><i class="cnt" id="placesCnt"></i></summary>
+      <ul class="places" id="placeList"></ul>
+    </details>
+    <details class="lsec exsec" id="routesBox" name="explore">
+      <summary><span>Tematické trasy</span><i class="cnt" id="routesCnt"></i></summary>
+      <label class="routesel" hidden><span class="vh">Téma</span><select id="routeSel"><option value="">Vyberte trasu…</option></select></label>
+      <ul class="places" id="routeList"></ul>
+      <p class="livenote">Trasy a místa podle GO TO BRNO. Vybraná trasa se ukáže na mapě a její karta má seznam zastávek; „▶ Přehrát trasu“ je proletí samo.</p>
+    </details>
+    <details class="lsec exsec" id="liveBox" name="explore">
+      <summary><span>Projekty města</span><i class="cnt" id="projCnt"></i></summary>
+      <ul class="places" id="projList"></ul>
+      <p class="livenote">Zdroj: <a href="https://cobude.brno.cz/" target="_blank" rel="noopener">Co bude, Brno?</a> a mapa Brno Brzo (data.brno.cz). <span id="projUpdated"></span></p>
+    </details>
+    </div>
+  </div>
+
+  <!-- Moje (src/moje.js): the visitor's own menu, the tab with the head before Více (there only with the part
+       "moje"): the places, stops and connections kept in this browser; later the code that carries them to another
+       device and the notices -->
+  <div class="pane" id="pane-moje" data-pub="moje" hidden>
+    <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+    <div class="pane-head"><h2>Moje</h2><button class="pbtn small" type="button" id="mojeView" title="Uloží mapu tak, jak ji máte teď: polohu, přiblížení a zapnuté vrstvy">+ Uložit tento pohled</button><button class="pbtn close pane-close" type="button" aria-label="Zavřít">×</button></div>
+    <div class="sheet-body">
+      <!-- the search of the list (from the fifth thing kept) and the list itself: one list, or blocks under the tags
+           the visitor gave (src/moje.js renderList) -->
+      <div class="lfind" id="mjFind" role="search" hidden>
+        <label class="vh" for="mjQ">Hledat v uložených</label>
+        <div class="lfind-box">
+          <input id="mjQ" type="search" placeholder="Hledat v uložených, třeba práce" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+          <button class="lfind-x" id="mjX" type="button" aria-label="Zrušit hledání a ukázat vše uložené" title="Zrušit hledání a ukázat vše uložené" hidden>×</button>
+        </div>
+      </div>
+      <p class="lfind-info" id="mjInfo" role="status" hidden></p>
+      <div class="moje-groups" id="mojeList"></div>
+      <p class="livenote" id="mojeEmpty">Zatím tu nic není. Hvězdičkou v kartě si uložíte místo, dům nebo zastávku, tlačítkem nahoře pohled na mapu i se zapnutými vrstvami. Spoj, kterým jezdíte, přidáte v kartě zastávky tlačítkem „Hlídat spoj odsud“.</p>
+      <p class="livenote">Vše zůstává jen v tomto prohlížeči, nikam se neposílá.</p>
+    </div>
+  </div>
+
+  <!-- Více: about the map, the data, sharing; tuning tools -->
+  <div class="pane" id="pane-more" hidden>
+    <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+    <div class="pane-head"><h2>Více</h2><button class="pbtn close pane-close" type="button" aria-label="Zavřít">×</button></div>
+    <div class="sheet-body">
+    <p class="sub" id="sub">Celé Brno z otevřených dat, ve stylu SimCity 2000.</p>
+    <!-- grouped rows with a pixel icon (src/quick.js PX) and a line of what it is; the share on Facebook first -->
+    <div class="morelist">
+      <p class="label">Data a přehledy</p>
+      <a class="pbtn mrow" data-pub="prehled" href="./prehled.html"><i data-px="news"></i><span><b>Brno teď</b><small>Zpravodajský přehled toho, co se v Brně děje</small></span></a>
+      <button class="pbtn mrow" type="button" id="dataOpen"><i data-px="chart"></i><span><b>Přehled dat v mapě</b><small>Odkud data jsou a jak často se obnovují</small></span></button>
+      <button class="pbtn mrow" type="button" id="placesOpen"><i data-px="pin"></i><span><b>Seznam míst</b><small>Všechna místa s kartou na jedné stránce</small></span></button>
+      <p class="label" data-pub="media">O projektu</p>
+      <button class="pbtn mrow" type="button" id="mediaOpen" data-pub="media"><i data-px="picture"></i><span><b>Pro média</b><small>Logo, ikona a obrázky ke stažení</small></span></button>
+      <p class="label">Aplikace</p>
+      <button class="pbtn mrow" type="button" id="installOpen" hidden><i data-px="install"></i><span><b>Nainstalovat aplikaci</b><small>Mapa na ploše telefonu jako appka</small></span></button>
+      <a class="pbtn mrow fb" id="fbShare" href="https://www.facebook.com/sharer/sharer.php" target="_blank" rel="noopener"><i data-px="fb"></i><span><b>Sdílet na Facebooku</b><small>Pošlete mapu přátelům</small></span></a>
+    </div>
+    
+    <p class="sig sig-more">Mapu vytvořil Mirek Kubásek</p>
+    <p class="intro intro-more">Celé Brno z otevřených dat na jednom místě: tramvaje a autobusy v reálném čase, počasí, doprava, ovzduší i to, co se staví nebo plánuje u vás za rohem. Projděte se Brnem v reálném čase a objevujte nová místa jako ve hře.</p>
+    </div>
+  </div>
+  <p class="sig sig-panel">Mapu vytvořil Mirek Kubásek</p>
+  <p class="intro intro-panel">Celé Brno z otevřených dat na jednom místě: tramvaje a autobusy v reálném čase, počasí, doprava, ovzduší i to, co se staví nebo plánuje u vás za rohem. Projděte se Brnem v reálném čase a objevujte nová místa jako ve hře.</p>
+</aside>
+
+<section class="card" id="card" hidden>
+  <div class="grip" id="cardGrip" aria-hidden="true"></div>
+  <button class="pbtn close" id="cardClose" type="button" aria-label="Zavřít kartu">×</button>
+  <!-- a card opened from the list of events: the way back to the list -->
+  <button class="pbtn small card-back" id="cardBack" type="button" hidden>‹ Zpět na události</button>
+  <!-- the title with the card's quick action beside it, left of × (Nastoupit on a tram, trolleybus or bus) -->
+  <div class="card-head"><h2 id="cardTitle" aria-live="polite"></h2><div class="card-act" id="cardAct"></div></div>
+  <div class="sheet-body">
+  <figure class="photo" id="cardFig" hidden><img id="cardImg" alt="" loading="lazy" referrerpolicy="no-referrer"><figcaption><a id="cardCredit" href="#" target="_blank" rel="noopener">Foto: Wikimedia Commons</a></figcaption></figure>
+  <p id="cardLead" hidden></p>
+  <dl id="cardFacts"></dl>
+  <div id="cardSections"></div>
+  <div class="links" id="cardLinks" role="group" aria-label="Odkazy k místu"></div>
+  </div>
+</section>
+
+<div class="minimap" id="minimap" role="group" aria-label="Přehledová mapa">
+  <canvas id="mini" width="220" height="117" aria-label="Minimapa: kliknutím přesunete pohled"></canvas>
+  <div class="mini-foot"><div class="scale" id="scale">1 px = 19 m</div><button class="mini-hide" id="miniHide" type="button" aria-label="Schovat přehledovou mapu" title="Schovat přehledovou mapu">−</button></div>
+</div>
+<!-- the minimap hidden by its −: this small button in the corner brings it back (main.js, remembered in this browser) -->
+<button class="pbtn mini-show" id="miniShow" type="button" aria-label="Ukázat přehledovou mapu" title="Ukázat přehledovou mapu" data-px="map"></button>
+<div class="controls">
+  <!-- Klidná mapa (part klid, src/main.js setKlid): the icon shows the map as it is now, coloured houses or low grey blocks; pressed = orange -->
+  <button class="pbtn klid-btn" id="klidBtn" type="button" data-pub="klid" title="Klidná mapa: šedé nízké domy bez oken a barev, vrstvy na ní vyniknou" aria-label="Klidná mapa" aria-pressed="false"><svg class="ico px-ico kb-full" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="#e27a5c" d="M1 2h4v1H1zM0 3h6v1H0zM7 5h4v1H7zM6 6h6v1H6z"/><path fill="currentColor" d="M1 4h4v8H1zM7 7h4v5H7z"/><path fill="var(--box-in)" d="M2 5h1v1H2zM4 5h1v1H4zM2 7h1v1H2zM4 7h1v1H4zM2 9h1v1H2zM4 9h1v1H4zM8 8h1v1H8zM10 8h1v1h-1zM8 10h1v1H8zM10 10h1v1h-1z"/></svg><svg class="ico px-ico kb-calm" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 9h5v3H0zM5 7h7v5H5z"/><path fill="#c6c3bc" d="M0 8h5v1H0zM5 6h7v1H5z"/></svg></button>
+  <!-- one click to the journey planner (src/spojeni.js), left of my position: the panel opens in Spojení -->
+  <button class="pbtn spoj-go" id="spojGo" type="button" data-pub="spojeni" title="Spojení MHD: odkud a kam" aria-label="Najít spojení MHD"><svg class="ico px-ico" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M12 0h1v1H12zM13 0h1v1H13zM14 0h1v1H14zM11 1h1v1H11zM12 1h1v1H12zM14 1h1v1H14zM15 1h1v1H15zM11 2h1v1H11zM12 2h1v1H12zM14 2h1v1H14zM15 2h1v1H15zM12 3h1v1H12zM13 3h1v1H13zM14 3h1v1H14zM13 4h1v1H13zM13 5h1v1H13zM4 6h1v1H4zM2 7h1v1H2zM6 7h1v1H6zM13 7h1v1H13zM1 9h1v1H1zM7 9h1v1H7zM13 9h1v1H13zM8 11h1v1H8zM12 11h1v1H12zM0 12h1v1H0zM1 12h1v1H1zM2 12h1v1H2zM10 12h1v1H10zM0 13h1v1H0zM1 13h1v1H1zM2 13h1v1H2zM0 14h1v1H0zM1 14h1v1H1zM2 14h1v1H2z"/></svg></button>
+  <button class="pbtn locate" id="locate" type="button" aria-pressed="false" title="Moje poloha" aria-label="Moje poloha"><svg class="ico px-ico" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M5 0h2v2H5zM5 10h2v2H5zM0 5h2v2H0zM10 5h2v2h-2zM4 2h4v1H4zM4 9h4v1H4zM2 4h1v4H2zM9 4h1v4H9zM3 3h1v1H3zM8 3h1v1H8zM3 8h1v1H3zM8 8h1v1H8zM5 5h2v2H5z"/></svg></button>
+  <button class="pbtn" id="zoomIn" type="button" title="Přiblížit" aria-label="Přiblížit" data-px="plus">+</button>
+  <button class="pbtn" id="zoomOut" type="button" title="Oddálit" aria-label="Oddálit" data-px="minus">−</button>
+  <button class="pbtn" id="home" type="button" title="Celá mapa" aria-label="Celá mapa" data-px="home">⌂</button>
+  <button class="pbtn" id="share" type="button" title="Sdílet tento pohled" aria-label="Sdílet tento pohled" data-px="share">⇪</button>
+  <button class="pbtn" id="snap" type="button" title="Snímek tohoto pohledu" aria-label="Snímek tohoto pohledu" aria-haspopup="dialog" aria-expanded="false" data-px="snap">📷</button>
+</div>
+<!-- a phone lying on its side: the corner button that hides the controls at the right and at the bottom (my position stays)
+     and brings them back, as the arrow of the bottom bar does on an upright phone (style.css, the sideways layout) -->
+<button class="pbtn dock-btn" id="dockMin" type="button" aria-label="Schovat ovládání do rohu" title="Schovat ovládání do rohu"><svg class="ico px-ico fold-ico" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M5 10h7v2H5zM10 5h2v7h-2zM2 5h5v2H2zM5 2h2v5H5zM0 0h2v2H0zM1 1h2v2H1zM2 2h2v2H2zM3 3h2v2H3z"/></svg></button>
+<button class="pbtn dock-btn" id="dockMax" type="button" aria-label="Ukázat ovládání" title="Ukázat ovládání"><svg class="ico px-ico" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M5 0h2v2H5zM1 1h2v1H1zM9 1h2v1H9zM1 2h10v1H1zM2 3h3v1H2zM7 3h3v1H7zM2 4h2v1H2zM8 4h2v1H8zM0 5h4v2H0zM8 5h4v2H8zM2 7h2v1H2zM8 7h2v1H8zM2 8h3v1H2zM7 8h3v1H7zM1 9h10v1H1zM1 10h2v1H1zM9 10h2v1H9zM5 10h2v2H5z"/></svg></button>
+<!-- [ADMIN] which version is open: only in the local version (the public one has no tuning tools) -->
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="dm-tip" id="dmTip" data-pub="datamap" aria-hidden="true" hidden></div>
+<!-- riding along with a vehicle: the next stops and getting off -->
+<aside class="ride-box" id="rideBox" hidden aria-label="Jízda MHD">
+  <button class="rb-title" id="rbTitle" type="button" title="Podrobnosti spoje"></button>
+  <span class="rb-delay" id="rbDelay"></span>
+  <ol class="rb-stops" id="rbStops"></ol>
+  <div class="rb-btns"><button class="pbtn small" id="rbBack" type="button" hidden>↺ K vozu</button><button class="pbtn small" id="rbStop" type="button">■ Vystoupit</button></div>
+</aside>
+<!-- "můj spoj" (src/moje.js): a kept connection comes by itself in its part of the day, small (when the next ride
+     leaves); opened, it lists the next rides and marks the stop and the vehicle on the map -->
+<aside class="ride-box spoj-box compact" id="spojBox" data-pub="moje" hidden aria-label="Můj spoj">
+  <button class="rb-title" id="sbTitle" type="button"></button>
+  <span class="rb-delay" id="sbNote" aria-live="polite"></span>
+  <ol class="rb-stops" id="sbDeps"></ol>
+  <div class="rb-btns"><button class="pbtn small" id="sbRide" type="button" hidden>▶ Nastoupit</button><button class="pbtn small" id="sbClose" type="button" aria-label="Zavřít můj spoj" title="Zavřít">×</button></div>
+</aside>
+<!-- phones, top bar folded into the ☰ corner button: the name stays in the top right as a quiet brand (plain
+     text with a pixel outline, no box; it lets taps through to the map) -->
+<!-- the logo alone over the map (panel folded on a computer, top bar in the corner on a phone): a click opens the box
+     below, "Jak to vzniklo" alone, the panel stays folded -->
+<button class="brand" id="brand" type="button" title="Kdo za aplikací stojí" aria-label="Brno 2000: kdo za aplikací stojí">Brno<span>2000</span><small class="tld">.cz</small></button>
+<aside class="about about-box" id="aboutBox" hidden aria-label="Kdo za aplikací stojí">
+  <div class="ab-head"><h2>Kdo za aplikací stojí</h2><button class="pbtn close" id="aboutClose" type="button" aria-label="Zavřít">×</button></div>
+  <div class="ab-body">
+<!--#about-->
+  </div>
+</aside>
+<!-- the clock, and beside it a pixel watch whose hand ticks while the map runs as in Brno now; pressed, it is a sun: the map is a clear summer day (the time and the live data stay real) -->
+<div class="clock" id="clock" title="Aktuální datum a čas v Brně — k nim se vztahují živá data (počasí, doprava, MHD)"><span class="ct" id="clockText"></span><button class="pbtn look-btn" id="lookSummer" type="button" data-look="live" aria-label="Vzhled mapy: roční období, denní doba a počasí" title="Vzhled mapy"><svg class="ico px-ico clk" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M4 0h4v1H4zM2 1h2v1H2zM8 1h2v1H8zM1 2h1v2H1zM10 2h1v2h-1zM0 4h1v4H0zM11 4h1v4h-1zM1 8h1v2H1zM10 8h1v2h-1zM2 10h2v1H2zM8 10h2v1H8zM4 11h4v1H4z"/><path fill="currentColor" d="M5 5h2v2H5z"/><path id="clkH" fill="currentColor" d=""/><path id="clkM" fill="currentColor" d=""/></svg><svg class="ico px-ico sun" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M4 3h4v1H4zM3 4h6v4H3zM4 8h4v1H4zM5 0h2v2H5zM5 10h2v2H5zM0 5h2v2H0zM10 5h2v2h-2zM1 1h1v1H1zM10 1h1v1h-1zM1 10h1v1H1zM10 10h1v1h-1z"/></svg></button></div>
+
+<!-- top right: what is happening now and the weather, side by side; each opens its overview beneath itself
+     (on phones both tiles sit above the bottom bar, next to the clock) -->
+<div class="hud-top">
+  <!-- Brno teď (prehled.html): the overview of the city as a newsroom page, opened in the same tab (it has its own way back
+       to the map); the first tile of the row on a computer, a square beside the ☰ button on an upright phone -->
+  <a class="pbtn now-tile" id="nowTile" data-pub="prehled" href="./prehled.html" title="Brno teď: co se v Brně právě děje, čísla za dnešek a za týden na jedné stránce"><span class="i" aria-hidden="true"><svg class="px-ico" viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="currentColor" d="M5 3h2v2H5zM3 2h1v4H3zM8 2h1v4H8zM1 1h1v6H1zM10 1h1v6h-1zM5 6h2v5H5zM3 11h6v1H3z"/></svg></span><span class="l">Brno teď</span><i class="nd" aria-hidden="true"></i></a>
+  <!-- Snímek on an upright phone: a square under Brno teď in the column under the folded ☰ (the top bar open has its own, #mSnap) -->
+  <!-- Klidná mapa on an upright phone: the square under Snímek in the column under the folded ☰ -->
+  <button class="pbtn klid-btn klid-tile" id="pKlid" type="button" data-pub="klid" title="Klidná mapa: šedé nízké domy bez oken a barev, vrstvy na ní vyniknou" aria-label="Klidná mapa" aria-pressed="false"><svg class="ico px-ico kb-full" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="#e27a5c" d="M1 2h4v1H1zM0 3h6v1H0zM7 5h4v1H7zM6 6h6v1H6z"/><path fill="currentColor" d="M1 4h4v8H1zM7 7h4v5H7z"/><path fill="var(--box-in)" d="M2 5h1v1H2zM4 5h1v1H4zM2 7h1v1H2zM4 7h1v1H4zM2 9h1v1H2zM4 9h1v1H4zM8 8h1v1H8zM10 8h1v1h-1zM8 10h1v1H8zM10 10h1v1h-1z"/></svg><svg class="ico px-ico kb-calm" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 9h5v3H0zM5 7h7v5H5z"/><path fill="#c6c3bc" d="M0 8h5v1H0zM5 6h7v1H5z"/></svg></button>
+  <button class="pbtn snap-tile" id="pSnap" type="button" aria-label="Snímek tohoto pohledu" title="Snímek tohoto pohledu" aria-haspopup="dialog" aria-expanded="false" data-px="snap"></button>
+  <button class="pbtn evt-tile zpr-tile" id="zprTile" type="button" data-pub="zpravy" hidden title="Dnes v Brně: co se děje ve městě" aria-controls="zpravy" aria-pressed="false"><span class="zd" aria-hidden="true"><svg class="px-ico" viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="currentColor" d="M4 0h4v1H4zM2 1h2v1H2zM8 1h2v1H8zM1 2h1v2H1zM10 2h1v2h-1zM0 4h1v4H0zM11 4h1v4h-1zM1 8h1v2H1zM10 8h1v2h-1zM2 10h2v1H2zM8 10h2v1H8zM4 11h4v1H4zM5 2h2v2H5zM5 5h2v4H5z"/></svg></span><span class="zr"></span><i class="zn"></i></button>
+  <button class="pbtn evt-tile akt-tile" id="aktToggle" type="button" title="Aktuálně: co je v Brně právě teď aktuální, se zvýrazněním v mapě" aria-controls="aktual" aria-pressed="false"><span class="i" aria-hidden="true" data-px="flag">⚑</span><span class="l">Aktuálně</span><i id="aktCount"></i></button>
+  <button class="pbtn evt-tile" id="evtToggle" type="button" title="Události: akce ve městě, doprava a MHD" aria-controls="events" aria-pressed="false"><span class="i" aria-hidden="true" data-px="ring">◉</span><span class="l">Události</span><i id="evtCount"></i></button>
+  <!-- Doprava: how jammed the city is (src/doprava.js); shown once its file has come, beside the weather -->
+  <button class="pbtn fc-tile dop-tile" id="dopTile" type="button" data-pub="doprava" hidden title="Doprava v Brně" aria-controls="fcPop" aria-expanded="false"><span class="i" aria-hidden="true"></span><span class="l">Doprava</span><span class="sp" aria-hidden="true"></span><b class="n">–</b></button>
+  <button class="pbtn fc-tile" id="fcTile" type="button" title="Počasí a předpověď pro Brno" aria-controls="fcPop" aria-expanded="false"><span class="i" id="fcTileIcon" aria-hidden="true">⛅</span><span class="t" id="fcTileTemp"></span><span class="l">Předpověď</span></button>
+</div>
+<!-- a phone with the bottom controls hidden to the corner: the weather and the traffic stay as a low strip in the bottom
+     left corner (the tiles above are hidden then); a tap opens the same overview as the tile; an open card or overview simply covers it -->
+<div class="mini-hud" id="miniHud" hidden>
+  <!-- the same watch as beside the clock (#lookSummer): Brno right now ⇄ noon and a clear sky -->
+  <button class="pbtn look-btn" id="mhL" type="button" data-look="live" aria-label="Vzhled mapy" title="Vzhled mapy"><svg class="ico px-ico clk" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M4 0h4v1H4zM2 1h2v1H2zM8 1h2v1H8zM1 2h1v2H1zM10 2h1v2h-1zM0 4h1v4H0zM11 4h1v4h-1zM1 8h1v2H1zM10 8h1v2h-1zM2 10h2v1H2zM8 10h2v1H8zM4 11h4v1H4z"/><path fill="currentColor" d="M5 5h2v2H5z"/><path id="mhClkH" fill="currentColor" d=""/><path id="mhClkM" fill="currentColor" d=""/></svg><svg class="ico px-ico sun" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M4 3h4v1H4zM3 4h6v4H3zM4 8h4v1H4zM5 0h2v2H5zM5 10h2v2H5zM0 5h2v2H0zM10 5h2v2h-2zM1 1h1v1H1zM10 1h1v1h-1zM1 10h1v1H1zM10 10h1v1h-1z"/></svg></button>
+  <button class="pbtn" id="mhW" type="button" title="Počasí a předpověď pro Brno" aria-controls="fcPop" aria-expanded="false"><span class="i" id="mhWi" aria-hidden="true"></span><span class="t" id="mhWt"></span></button>
+  <button class="pbtn" id="mhD" type="button" data-pub="doprava" hidden title="Doprava v Brně" aria-controls="fcPop" aria-expanded="false"><span class="i" aria-hidden="true"></span><span class="n"></span><span class="w"></span></button>
+</div>
+<!-- quick tiles of the themes (src/quick.js): a column under the tiles at the right edge; on phones a row above the tiles at the bottom -->
+<div class="qbar" id="quick" role="group" aria-label="Rychlé přepínače vrstev"></div>
+<!-- the short weather overview under the tile (the full forecast is a dialog behind "Podrobná předpověď") -->
+<aside class="fc-pop" id="fcPop" hidden aria-label="Počasí v Brně">
+  <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+  <div class="evt-head"><h2>Počasí v Brně</h2><button class="pbtn close" id="fcPopClose" type="button" aria-label="Zavřít">×</button></div>
+  <div id="fcPopBody" class="sheet-body"></div>
+</aside>
+<!-- Aktuálně: a short list of what is topical in the city right now (the vote of the participatory budget, the events
+     of the week …); each item can light up its points in the map — bigger icons with a pulsing ring, the rest dimmed -->
+<aside class="events aktual" id="aktual" hidden aria-label="Aktuálně v Brně">
+  <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+  <div class="evt-head"><h2>Aktuálně</h2><button class="pbtn close" id="aktClose" type="button" aria-label="Zavřít">×</button></div>
+  <div class="sheet-body">
+  <ol class="akt-list" id="aktList"></ol>
+  <p class="livenote">Zvýraznění zvětší body tématu v mapě a ostatní ikony ztlumí; kliknutím na bod se otevře jeho karta.</p>
+  </div>
+</aside>
+<!-- Zprávy: what is going on right now, today and in the coming days (filled by src/zpravy.js) -->
+<aside class="events zpravy" id="zpravy" data-pub="zpravy" hidden aria-label="Dnes v Brně">
+  <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+  <div class="evt-head"><div class="row2 zpr-tabs" id="zprTabs" role="group" aria-label="Které zprávy ukázat"></div><button class="pbtn close" id="zprClose" type="button" aria-label="Zavřít">×</button></div>
+  <div class="sheet-body" id="zprBody"></div>
+</aside>
+<aside class="events" id="events" hidden aria-label="Události v Brně">
+  <div class="grip" aria-hidden="true" title="Táhněte nahoru nebo dolů"></div>
+  <div class="evt-head"><h2>Události</h2><button class="pbtn close" id="evtClose" type="button" aria-label="Zavřít">×</button></div>
+  <div class="row2 evt-tabs" id="evtTabs"><button class="pbtn small" type="button" data-t="city" aria-pressed="true">Akce</button><button class="pbtn small" type="button" data-t="traffic" aria-pressed="false">Doprava</button></div>
+  <div class="evt-filter" id="evtFilter"><div class="row2" id="evtRange"><button class="pbtn small" type="button" data-r="t" aria-pressed="true">Dnes</button><button class="pbtn small" type="button" data-r="w" aria-pressed="false">Tento týden</button><button class="pbtn small" type="button" data-r="l" aria-pressed="false">Později</button></div><select id="evtCat" aria-label="Kategorie"><option value="">Všechny kategorie</option></select></div>
+  <div class="sheet-body">
+  <ol class="evt-list" id="evtList"></ol>
+  <p class="livenote">Kolony, nehody a překážky hlásí řidiči ve Waze (otevřená data města Brna), uzavírky jsou z oficiálních dat a OpenStreetMap. Kliknutím na událost se mapa přiblíží na místo.</p>
+  </div>
+</aside>
+
+<dialog class="modal" id="helpDlg" aria-labelledby="helpTitle">
+  <button class="pbtn close" id="helpClose" type="button" aria-label="Zavřít nápovědu">×</button>
+  <h2 id="helpTitle">Nápověda a o mapě</h2>
+  <p class="byline"><span>Mapu vytvořil Mirek Kubásek</span></p>
+  <p>Izometrická mapa celého Brna ve stylu SimCity 2000. Budovy, ulice, stromy i terén jsou vykreslené z otevřených dat.</p>
+  <h3>Ovládání</h3>
+  <ul>
+    <li><b>Pohyb po mapě:</b> mapu posunete tažením myší nebo prstem. Přiblížíte ji kolečkem, roztažením dvou prstů nebo dvojklikem.</li>
+    <li><b>Budova:</b> po přiblížení na ni klikněte a ukáže se, co je zač, adresa a odkaz na Mapy.cz.</li>
+    <li><b>Nabídka</b> je na počítači řada tlačítek nahoře v panelu a pod ní je vždy jen jedna věc: hledání, spojení, nebo otevřená záložka (po jejím zavření se vrátí hledání); na mobilu je to lišta dole. <b>Hledat</b> a <b>Spojení</b> (na mobilu přepínač nad polem hledání), <b>Vrstvy</b> (co je na mapě vidět, datové mapy a legenda), <b>Objevuj</b> (místa a příběhy, tematické trasy, projekty města), <b>Vzhled</b> (roční období, denní doba, počasí)<span data-pub="moje">, <b>Moje</b> (místa, zastávky, spoje a pohledy na mapu, které si uložíte)</span> a <b>Více</b> (přehled dat, seznam míst, instalace). <b>Kdo za aplikací stojí</b> je pod polem hledání.</li>
+    <li><b>Dlaždice témat</b> (Stavby, MHD, Doprava, Akce, Místa, Senzory, Fotky): klepnutí téma zapne a ukáže nabídku, ve které si zaškrtnete libovolnou kombinaci toho, co chcete vidět (u Akcí dnes, tento týden, později). Tečky na dlaždici ukazují, co je zapnuté. Nabídku zavřete křížkem, druhým klepnutím na dlaždici nebo klepnutím jinam; výběr zůstane. Téma vypnete položkou „Vypnout vrstvy“ nebo podržením dlaždice; příště se zapne s tím, co jste měli vybrané. Podrobné přepínače jsou v záložce Vrstvy; vrstvu tam najdete i psaním do pole nahoře (třeba „hasiči“ nebo „parkování“) a tlačítko „Jen zapnuté“ ukáže, co je na mapě právě zapnuté. Stejné pole má záložka Objevuj: hledá v místech, trasách i projektech města.</li>
+    <li><b>Dnes v Brně:</b> tabule s běžícími zprávami; po kliknutí seznam toho, co se ve městě děje právě teď, co přijde dnes, co se dnes už stalo a co se chystá v příštích dnech. Kliknutím na zprávu se mapa přesune na místo nebo zvýrazní, čeho se zpráva týká.</li>
+    <li><b>Hledání</b> zná ulice, adresy, budovy i zajímavá místa. Ve výsledcích se dá chodit šipkami, Enter vybere.</li>
+    <li><b>Vzhled mapy:</b> mapa běžně vypadá jako Brno právě teď (roční období, denní doba, počasí). Když vypadá jinak, třeba jako letní den nebo ve dne místo v noci, má záložka Vzhled žlutou značku. Nahoře v ní je napsané, co mapa právě ukazuje, a vedle toho jedno tlačítko: „Letní slunečný den“, nebo zpět „Jako teď v Brně“. Když je v Brně tma, je na záložce měsíc; denní světlo zapnete ve Vzhledu volbou Poledne. Čas, MHD, kolony a uzavírky i počasí v číslech zůstávají vždy skutečné. Hodinky u data a času otevřou záložku Vzhled.</li>
+    <li><b>Na mobilu:</b> karty a nabídky se vysouvají zdola. Za úchyt nahoře je jde vytáhnout výš nebo stáhnout dolů a tím zavřít. Tlačítko Zpět zavře to, co je právě otevřené. Horní i spodní lišta jdou schovat do rohu.</li>
+    <li><b>Klávesnice:</b> Esc zavře otevřenou kartu nebo nabídku.</li>
+    <li><b>Orientace:</b> mapa má vždy sever nahoře.</li>
+    <li><b>Názvy zajímavých míst</b> (záložka Vrstvy, nebo dlaždice Místa): názvy se zapínají přepínačem, aby mapa nebyla přeplněná. Z dálky jsou vidět hlavní místa Brna, po přiblížení přibývají další. Tečka u názvu: zelená vede na článek z Wikipedie, modrá na místo GO TO BRNO, žlutá na projekt města; kliknout jde na tečku i na celý název.</li>
+    <li><b>Stavby a rozvoj města</b> (záložka Vrstvy): zvlášť probíhající výstavba, plánované městské a soukromé projekty a velké dopravní záměry.</li>
+    <li><b>Živá data:</b> skutečné počasí v Brně, kolony a uzavírky (auta v koloně stojí), MHD živě nebo podle jízdního řádu (Vrstvy → MHD), kvalita ovzduší, webkamery a meteostanice. Ostatní jedoucí auta a lidé na ulicích jsou jen ilustrace: oživují mapu, nejsou to skutečná vozidla ani lidé.</li>
+    <li><b>Sdílet</b> <span class="ico-inline"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/><path d="M8 10H5v11h14V10h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span> zkopíruje odkaz přesně na to, co právě vidíte: místo a přiblížení, zapnuté vrstvy, zvýrazněné body, otevřenou kartu a jestli je panel nahoře rozbalený, nebo schovaný. Kdo odkaz otevře, uvidí mapu jako teď v Brně; jen když máte zapnutý letní vzhled nebo Ukázat den, odkaz ho přenese.</li>
+  </ul>
+  <p><a href="#" id="dataOpen2">Přehled dat v mapě</a>: zdroje, množství a aktuálnost. <a href="#" id="aboutOpen">Kdo za aplikací stojí</a>.</p>
+  <h3>Něco nesedí?</h3>
+  <p>Mapa vychází z OpenStreetMap. Když v ní něco chybí nebo je jinak, nejrychlejší cesta je opravit to přímo na <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">openstreetmap.org</a>. Při dalším vykreslení se oprava objeví i tady.</p>
+  <h3 id="licence">Licence a autorství</h3>
+  <p>Prohlížeč mapy vychází z open-source projektu <a href="https://github.com/adamklatovsky/izomapa" target="_blank" rel="noopener">izomapa</a> <a href="https://www.adamklatovsky.cz/" target="_blank" rel="noopener">Adama Klatovského</a> (AGPL-3.0), původní mapa: <a href="https://izomapa.fun/" target="_blank" rel="noopener">Izometrický Liberec</a>. První verzi prohlížeče jsem podle něj začal vytvářet 3. listopadu 2026.</p>
+  <p>Brno 2000 jsem postupně dále rozvinul: upravil jsem způsob vykreslování a zpracování dat a doplnil další funkce i datové vrstvy. Velkou část práce tvoří také úpravy přímo pro Brno. Vybrané budovy, dominanty, zastávky a křižovatky porovnávám s fotografiemi a postupně upravuji jejich podobu, aby mapa co nejlépe odpovídala skutečnosti.</p>
+  <p>Veřejné verze zdrojového kódu jsou na GitHubu: <a href="https://github.com/MiroslavKubasek/brno2000" target="_blank" rel="noopener">github.com/MiroslavKubasek/brno2000</a>.</p>
+  <p>© 2026 Mirek Kubásek, autor mapy Brno 2000. Kresba mapy, grafika a ruční úpravy Brna nejsou volně k převzetí, šíření jen se souhlasem autora.</p>
+  <p class="muted">Mapová data © přispěvatelé <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL), terén Terrarium (AWS Open Data / Mapzen), barvy a detaily střech podle ortofota města Brna 2026 (© TopGis, s.r.o., Statutární město Brno, <a href="https://gis.brno.cz/mapa/historicka-ortofota/" target="_blank" rel="noopener">gis.brno.cz</a>) a ortofota © <a href="https://geoportal.cuzk.gov.cz/" target="_blank" rel="noopener">ČÚZK</a> (CC BY 4.0), kvalita ovzduší © ČHMÚ (přes EEA), výšky a tvary střech z 3D modelu města Brna (KAM), doprava (Waze), projekty Brno Brzo a Co bude, Brno? © Statutární město Brno (<a href="https://data.brno.cz/" target="_blank" rel="noopener">data.brno.cz</a>), jízdní řády IDS JMK © KORDIS JMK, počasí <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), texty a fotky míst z Wikipedie a Wikimedia Commons (podle nich jsou i barvy fasád některých budov). Styl inspirovaný i mapou <a href="https://isometric.nyc/" target="_blank" rel="noopener">isometric.nyc</a>.</p>
+</dialog>
+
+<dialog class="modal data" id="fcDlg" aria-labelledby="fcTitle">
+  <button class="pbtn close" id="fcClose" type="button" aria-label="Zavřít">×</button>
+  <h2 id="fcTitle">Předpověď počasí pro Brno</h2>
+  <div id="fcBody"></div>
+</dialog>
+
+<dialog class="modal data frame-dlg" id="frameDlg" aria-labelledby="frameTitle">
+  <button class="pbtn close" id="frameClose" type="button" aria-label="Zavřít">×</button>
+  <h2 id="frameTitle"></h2>
+  <iframe id="frameBox" title=""></iframe>
+</dialog>
+
+<div class="alertbar" id="alertBar" hidden role="status"></div>
+<div class="fcpill" id="fcPill" hidden><span id="fcPillText"></span> <button class="pbtn small" id="fcPillNow" type="button">Zpět na teď</button></div>
+<!-- the map does not look as Brno does now (a summer look, daylight at night, a look set by hand), or it is night: what it shows and the way back (src/main.js lookChip) -->
+<div class="look-chip" id="lookChip" role="status" hidden><span class="l" id="lookChipText"></span><button class="pbtn small" id="lookChipBtn" type="button"></button></div>
+
+<dialog class="modal data" id="dataDlg" aria-labelledby="dataTitle">
+  <button class="pbtn close" id="dataClose" type="button" aria-label="Zavřít">×</button>
+  <h2 id="dataTitle">Přehled dat v mapě</h2>
+  <!-- two tabs: the table of the data and the ready-made links (hidden while no theme is public, openData in src/main.js) -->
+  <div class="row2 data-tabs" id="dataTabs" hidden><button class="pbtn" type="button" data-t="data" aria-pressed="true">Přehled dat</button><button class="pbtn" type="button" data-t="links" aria-pressed="false">Nachystané odkazy</button></div>
+  <div id="dataPaneData">
+  <p>Všechna data, ze kterých je mapa poskládaná: co ukazují, odkud jsou, kolik jich je a jak jsou aktuální. <b class="m-live">živě</b> = stránka si je načítá při prohlížení, <b class="m-regular">obnovováno</b> = data se pravidelně obnovují, <b class="m-snapshot">stav k datu</b> = snímek dat z uvedeného dne.</p>
+  <div class="datatools">
+    <input id="dataSearch" type="search" placeholder="Hledat v datech (název, zdroj, licence…)" aria-label="Hledat v datech">
+    <label>Řadit: <select id="dataSort"><option value="count">podle množství</option><option value="name">podle abecedy</option><option value="date">podle aktuálnosti</option><option value="mode">podle typu</option></select></label>
+  </div>
+  <div class="datatable-wrap"><table class="datatable"><thead><tr><th>Data</th><th>Zdroj a licence</th><th class="num">Množství</th><th>Aktuálnost</th></tr></thead><tbody id="dataRows"></tbody></table></div>
+  <p class="muted" id="dataCount"></p>
+  <p><a href="./data.html" target="_blank" rel="noopener">Otevřít přehled jako samostatnou stránku (s řazením a stažením CSV) ↗</a></p>
+  </div>
+  <div id="dataLinks" class="datalinks" hidden>
+    <p>Krátké adresy, které mapu otevřou rovnou s jedním tématem: jeho vrstva se zapne, body se zvýrazní a mapa se nastaví tak, aby byly vidět všechny. Hodí se ke sdílení, každá má vlastní náhled.</p>
+    <ul id="dataLinkList"></ul>
+  </div>
+</dialog>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules
+dist/
+dist-public/
+tools/data/placepages-lastmod.json
+.vite/
+.DS_Store
+*.log
+.env.local
+.env.*.local
